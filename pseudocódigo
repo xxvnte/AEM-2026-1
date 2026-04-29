@@ -1,0 +1,60 @@
+
+BACKTRACKING(D, aviones, sep, num_pistas, dominios):
+    mejor_costo ← ∞
+    mejor_asignación ← ninguna
+    nodos_explorados ← 0
+
+    orden ← ORDENAR_POR_Ek(aviones)          // heurística de variable
+    pista_de ← [ninguna] × D
+
+    BT(asignación, pos, costo_actual):
+        nodos_explorados ← nodos_explorados + 1
+
+        // Poda por cota
+        si costo_actual ≥ mejor_costo:
+            retornar
+
+        // Caso base: todos los aviones asignados
+        si pos = D:
+            mejor_costo ← costo_actual
+            mejor_asignación ← copiar(asignación)
+            retornar
+
+        i ← orden[pos]
+
+        para t en ORDENAR_POR_CERCANÍA(dominios[i], Pk[i]):   // heurística de valor
+            c_i ← COSTO(aviones[i], t)
+
+            // Poda anticipada por costo parcial
+            si costo_actual + c_i ≥ mejor_costo:
+                continuar
+
+            para r en {1, …, num_pistas}:
+                si ES_CONSISTENTE(i, t, r, asignación, pista_de, sep):
+                    asignación[i] ← t          // asignar
+                    pista_de[i]  ← r
+                    BT(asignación, pos + 1, costo_actual + c_i)
+                    eliminar asignación[i]     // desasignar (backtrack)
+                    pista_de[i] ← ninguna
+
+    BT({}, 0, 0)
+    retornar mejor_asignación, mejor_costo
+
+
+ES_CONSISTENTE(i, t_i, r_i, asignación, pista_de, sep):
+    para cada j en asignación:
+        si pista_de[j] ≠ r_i:
+            continuar                          // pistas distintas → sin restricción
+        si t_i = t_j:
+            retornar Falso                     // aterrizaje simultáneo no permitido
+        si t_i > t_j  y  t_i < t_j + sep[j][i]:
+            retornar Falso                     // i llega muy pronto después de j
+        si t_j > t_i  y  t_j < t_i + sep[i][j]:
+            retornar Falso                     // j llegaría muy pronto después de i
+    retornar Verdadero
+
+
+COSTO(avión, t):
+    si t < Pk:
+        retornar c_early × (Pk − t)
+    retornar c_late × (t − Pk)
