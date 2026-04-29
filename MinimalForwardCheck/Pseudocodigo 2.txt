@@ -1,0 +1,27 @@
+Funcion Propagar_MFC(k, r_asig, t_asig, estado, modificaciones)
+    Para cada avion no asignado j:
+        
+        // Criterio MFC: Ignorar si j ya no considera la pista r_asig
+        Si r_asig NO esta en el dominio de pistas de j:
+            Continuar 
+
+        // Filtrar dominio de tiempos de j para la pista r_asig
+        Para cada tiempo t_j en dominio_tiempos[j][r_asig]:
+            Si NO cumple (t_j <= t_asig - tau_j_k) Y NO cumple (t_j >= t_asig + tau_k_j):
+                Marcar t_j para eliminacion
+
+        Si hay tiempos eliminados:
+            Registrar lista original en 'modificaciones'
+            dominio_tiempos[j][r_asig] = nuevos_tiempos_filtrados
+
+            Si dominio_tiempos[j][r_asig] queda vacio:
+                Registrar pistas originales en 'modificaciones'
+                Eliminar r_asig del dominio de pistas de j
+                
+                Si dominio de pistas de j queda vacio:
+                    Return Falso // Dominio aniquilado, rama infactible
+
+            Actualizar penalización minima proyectada para j
+            Registrar cambio de penalizacion en 'modificaciones'
+
+    Return Verdadero

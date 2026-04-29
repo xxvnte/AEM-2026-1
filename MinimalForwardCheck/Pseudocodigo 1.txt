@@ -1,0 +1,36 @@
+Funcion MFC_Buscador (estado)
+    Si todos los aviones están asignados:
+        Si coste_acumulado < mejor_coste:
+            mejor_coste = coste_acumulado
+            Guardar asignacion optima
+        Return
+
+    Selecciono el avion k usando heuristica MRV
+    Calcular cota_inferior_parcial excluyendo a k
+
+    Generar combinaciones (r, t) para k, ordenadas por proximidad a P_k
+
+    Para cada combinacion (r, t) en combinaciones:
+        Si (r, t) ya no es valido en el dominio actual: 
+            Continuar
+
+        nuevo_coste = coste_acumulado + penalizacion_avion(k, t)
+
+        // Poda Branch & Bound
+        Si nuevo_coste + cota_inferior_parcial >= mejor_coste:
+            Continuar // Podar esta rama
+
+        // Preparacion y Asignacion (Trailing)
+        estado_previo = Registrar_Estado_Actual(k)
+        estado.asignar(k, r, t, nuevo_coste)
+        Crear diccionario vacío 'modificaciones'
+
+        // Propagacion MFC
+        exito = Propagar_MFC(k, r, t, estado, modificaciones)
+
+        Si exito es Verdadero:
+            MFC_Buscador(estado) // Llamada recursiva
+
+        // Backtracking rapido
+        Restaurar estado usando 'modificaciones' y 'estado_previo'
+        estado.desasignar(k)
