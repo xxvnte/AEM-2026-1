@@ -3,6 +3,12 @@ Aircraft Landing Problem - Minimal Forward Checking con Branch and Bound
 =========================================================================
 Algoritmo MFC con Branch and Bound para asignar tiempos (T_k) y pistas (R_k).
 
+Ejemplos de uso:
+    python3 main.py case1.txt
+    python3 main.py case2.txt
+    python3 main.py case3.txt
+    python3 main.py case4.txt
+
 Diferencia clave entre algoritmos:
 - Backtracking: Verifica restricciones SOLO con aviones ya asignados.
 - FC (Forward Checking): Propaga restricciones a TODOS los aviones no asignados.
@@ -11,12 +17,13 @@ Diferencia clave entre algoritmos:
 
 Optimización de Rendimiento (Trailing):
   Para evitar el inmenso costo computacional de copiar el estado completo
-  en cada nodo (deepcopy), se utiliza un mecanismo de "trailing". Solo se 
-  guardan referencias a los dominios originales antes de ser filtrados. Al 
-  hacer backtrack, se restauran estas referencias en O(1), permitiendo 
+  en cada nodo (deepcopy), se utiliza un mecanismo de "trailing". Solo se
+  guardan referencias a los dominios originales antes de ser filtrados. Al
+  hacer backtrack, se restauran estas referencias en O(1), permitiendo
   evaluar cientos de miles de nodos por segundo.
 """
 
+import os
 import sys
 import time as time_module
 from typing import List, Dict, Tuple, Optional, Set
@@ -25,17 +32,19 @@ from typing import List, Dict, Tuple, Optional, Set
 # Estructuras de datos
 # ---------------------------------------------------------------------------
 
-class Avion:
-    __slots__ = ('idx', 'E', 'L', 'P', 'C', 'Cp', 'tau')
 
-    def __init__(self, idx: int, E: int, L: int, P: int,
-                 C: float, Cp: float, tau_row: List[int]):
+class Avion:
+    __slots__ = ("idx", "E", "L", "P", "C", "Cp", "tau")
+
+    def __init__(
+        self, idx: int, E: int, L: int, P: int, C: float, Cp: float, tau_row: List[int]
+    ):
         self.idx = idx
-        self.E = E          # Tiempo más temprano
-        self.L = L          # Tiempo más tardío
-        self.P = P          # Tiempo preferente
-        self.C = C          # Penalización por adelanto
-        self.Cp = Cp        # Penalización por retraso
+        self.E = E  # Tiempo más temprano
+        self.L = L  # Tiempo más tardío
+        self.P = P  # Tiempo preferente
+        self.C = C  # Penalización por adelanto
+        self.Cp = Cp  # Penalización por retraso
         self.tau = tau_row  # Separación mínima requerida
 
     def penalizacion(self, t: int) -> float:
@@ -46,36 +55,46 @@ class Avion:
 
     def pen_lista(self, tiempos: List[int]) -> float:
         if not tiempos:
-            return float('inf')
+            return float("inf")
         return min(self.penalizacion(t) for t in tiempos)
+
 
 # ---------------------------------------------------------------------------
 # Lectura de instancia
 # ---------------------------------------------------------------------------
 
+
 def leer_instancia(archivo: str) -> Tuple[int, List[Avion]]:
-    with open(archivo, 'r') as f:
+    with open(archivo, "r") as f:
         tokens = f.read().split()
 
     pos = 0
-    D = int(tokens[pos]); pos += 1
+    D = int(tokens[pos])
+    pos += 1
 
     aviones = []
     for k in range(D):
-        E  = int(tokens[pos]);   pos += 1
-        L  = int(tokens[pos]);   pos += 1
-        P  = int(tokens[pos]);   pos += 1
-        C  = float(tokens[pos]); pos += 1
-        Cp = float(tokens[pos]); pos += 1
+        E = int(tokens[pos])
+        pos += 1
+        L = int(tokens[pos])
+        pos += 1
+        P = int(tokens[pos])
+        pos += 1
+        C = float(tokens[pos])
+        pos += 1
+        Cp = float(tokens[pos])
+        pos += 1
         tau_row = [int(tokens[pos + j]) for j in range(D)]
         pos += D
         aviones.append(Avion(k, E, L, P, C, Cp, tau_row))
 
     return D, aviones
 
+
 # ---------------------------------------------------------------------------
 # Estado de dominios
 # ---------------------------------------------------------------------------
+
 
 class Estado:
     def __init__(self, D: int, aviones: List[Avion], pistas: Tuple[int, ...]):
@@ -84,8 +103,7 @@ class Estado:
 
         # dom_t[k][r] = lista de tiempos válidos para el avión k en la pista r
         self.dom_t: List[Dict[int, List[int]]] = [
-            {r: list(range(a.E, a.L + 1)) for r in pistas}
-            for a in aviones
+            {r: list(range(a.E, a.L + 1)) for r in pistas} for a in aviones
         ]
         self.dom_r: List[Set[int]] = [set(pistas) for _ in range(D)]
 
@@ -106,25 +124,28 @@ class Estado:
 
     def actualizar_min_pen(self, j: int, avion: Avion, modificaciones: dict) -> None:
         """Recalcula la mínima penalización de 'j' y anota el cambio en el trail."""
-        nueva = float('inf')
+        nueva = float("inf")
         for r in self.dom_r[j]:
             if self.dom_t[j][r]:
                 nueva = min(nueva, avion.pen_lista(self.dom_t[j][r]))
-        
+
         if nueva != self.min_pen[j]:
-            if j not in modificaciones['min_pen']:
-                modificaciones['min_pen'][j] = self.min_pen[j]
+            if j not in modificaciones["min_pen"]:
+                modificaciones["min_pen"][j] = self.min_pen[j]
             self.lb_no_asig += nueva - self.min_pen[j]
             self.min_pen[j] = nueva
+
 
 # ---------------------------------------------------------------------------
 # Heurísticas
 # ---------------------------------------------------------------------------
 
+
 def seleccionar_variable(estado: Estado) -> int:
     """MRV: avión no asignado con menor dominio combinado. Desempate: menor índice."""
     candidatos = estado.no_asignados()
     return min(candidatos, key=lambda k: estado.tamanio_dominio(k))
+
 
 def ordenar_valores(k: int, avion: Avion, estado: Estado) -> List[Tuple[int, int]]:
     """Ordena combinaciones (pista, tiempo) por proximidad a P_k."""
@@ -135,12 +156,20 @@ def ordenar_valores(k: int, avion: Avion, estado: Estado) -> List[Tuple[int, int
     combinaciones.sort(key=lambda rt: (abs(rt[1] - avion.P), rt[1]))
     return combinaciones
 
+
 # ---------------------------------------------------------------------------
 # Propagación MFC
 # ---------------------------------------------------------------------------
 
-def propagar_mfc(k: int, r_asig: int, t_asig: int,
-                 estado: Estado, aviones: List[Avion], modificaciones: dict) -> bool:
+
+def propagar_mfc(
+    k: int,
+    r_asig: int,
+    t_asig: int,
+    estado: Estado,
+    aviones: List[Avion],
+    modificaciones: dict,
+) -> bool:
     """
     Propagación Minimal Forward Checking con Trailing.
     Registra cualquier dominio modificado en 'modificaciones' para restaurarlo rápido.
@@ -157,18 +186,17 @@ def propagar_mfc(k: int, r_asig: int, t_asig: int,
         lista = estado.dom_t[j][r_asig]
 
         nuevos = [
-            t_j for t_j in lista
-            if t_j <= t_asig - tau_j_k or t_j >= t_asig + tau_k_j
+            t_j for t_j in lista if t_j <= t_asig - tau_j_k or t_j >= t_asig + tau_k_j
         ]
 
         if len(nuevos) < len(lista):
             # Trailing: Guardar la referencia a la lista antigua
-            modificaciones['dom_t'][(j, r_asig)] = lista
+            modificaciones["dom_t"][(j, r_asig)] = lista
             estado.dom_t[j][r_asig] = nuevos
 
             if not nuevos:
                 # Trailing: Guardar copia del set de pistas
-                modificaciones['dom_r'][j] = estado.dom_r[j].copy()
+                modificaciones["dom_r"][j] = estado.dom_r[j].copy()
                 estado.dom_r[j].discard(r_asig)
                 if not estado.dom_r[j]:
                     return False  # Dominio vacío
@@ -177,15 +205,17 @@ def propagar_mfc(k: int, r_asig: int, t_asig: int,
 
     return True
 
+
 # ---------------------------------------------------------------------------
 # Algoritmo MFC con Branch and Bound
 # ---------------------------------------------------------------------------
+
 
 class Buscador:
     def __init__(self, D: int, aviones: List[Avion]):
         self.D = D
         self.aviones = aviones
-        self.mejor_coste: float = float('inf')
+        self.mejor_coste: float = float("inf")
         self.mejor_asignacion: Optional[Dict[int, Tuple[int, int, float]]] = None
         self.nodos_explorados: int = 0
 
@@ -206,7 +236,7 @@ class Buscador:
 
         combinaciones = ordenar_valores(k, avion_k, estado)
 
-        for (r, t) in combinaciones:
+        for r, t in combinaciones:
             # Validar que r y t no hayan sido podados previamente en este bucle
             if r not in estado.dom_r[k] or t not in estado.dom_t[k].get(r, []):
                 continue
@@ -231,7 +261,7 @@ class Buscador:
             estado.dom_r[k] = {r}
             estado.dom_t[k] = {r: [t]}
 
-            modificaciones = {'dom_t': {}, 'dom_r': {}, 'min_pen': {}}
+            modificaciones = {"dom_t": {}, "dom_r": {}, "min_pen": {}}
 
             # Propagación
             exito = propagar_mfc(k, r, t, estado, self.aviones, modificaciones)
@@ -240,11 +270,11 @@ class Buscador:
                 self.mfc(estado)
 
             # --- RESTAURACIÓN RÁPIDA (Backtrack) ---
-            for (j, r_mod), old_lst in modificaciones['dom_t'].items():
+            for (j, r_mod), old_lst in modificaciones["dom_t"].items():
                 estado.dom_t[j][r_mod] = old_lst
-            for j, old_set in modificaciones['dom_r'].items():
+            for j, old_set in modificaciones["dom_r"].items():
                 estado.dom_r[j] = old_set
-            for j, old_pen in modificaciones['min_pen'].items():
+            for j, old_pen in modificaciones["min_pen"].items():
                 estado.min_pen[j] = old_pen
 
             del estado.asignados[k]
@@ -254,15 +284,28 @@ class Buscador:
             estado.dom_t[k] = old_dom_t_k
             estado.min_pen[k] = old_min_pen_k
 
+
 # ---------------------------------------------------------------------------
 # Programa principal
 # ---------------------------------------------------------------------------
+
+
+def resolve_case_path(archivo: str) -> str:
+    if os.path.exists(archivo):
+        return archivo
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    cases_dir = os.path.normpath(os.path.join(script_dir, "..", "cases"))
+    return os.path.join(cases_dir, archivo)
+
 
 def main():
     if len(sys.argv) >= 2:
         archivo = sys.argv[1]
     else:
         archivo = input("Archivo de instancia [case1.txt]: ").strip() or "case1.txt"
+
+    archivo = resolve_case_path(archivo)
 
     while True:
         try:
@@ -308,26 +351,32 @@ def main():
         print("  SOLUCIÓN ÓPTIMA ENCONTRADA")
         print(f"{'='*68}")
 
-        h = (f"  {'Avión':>5}  {'Pista':>5}  {'E':>6}  {'P':>6}  "
-             f"{'L':>6}  {'T asig.':>8}  {'Costo':>10}")
-        sep = (f"  {'-'*5}  {'-'*5}  {'-'*6}  {'-'*6}  "
-               f"{'-'*6}  {'-'*8}  {'-'*10}")
+        h = (
+            f"  {'Avión':>5}  {'Pista':>5}  {'E':>6}  {'P':>6}  "
+            f"{'L':>6}  {'T asig.':>8}  {'Costo':>10}"
+        )
+        sep = f"  {'-'*5}  {'-'*5}  {'-'*6}  {'-'*6}  " f"{'-'*6}  {'-'*8}  {'-'*10}"
         print(h)
         print(sep)
 
         for k in range(D):
             r, t, pen = buscador.mejor_asignacion[k]
             a = aviones[k]
-            print(f"  {k+1:>5}  {r:>5}  {a.E:>6}  {a.P:>6}  "
-                  f"{a.L:>6}  {t:>8}  {pen:>10.2f}")
+            print(
+                f"  {k+1:>5}  {r:>5}  {a.E:>6}  {a.P:>6}  "
+                f"{a.L:>6}  {t:>8}  {pen:>10.2f}"
+            )
 
         print(sep)
-        print(f"  {'TOTAL':>5}  {'':>5}  {'':>6}  {'':>6}  "
-              f"{'':>6}  {'':>8}  {buscador.mejor_coste:>10.2f}")
+        print(
+            f"  {'TOTAL':>5}  {'':>5}  {'':>6}  {'':>6}  "
+            f"{'':>6}  {'':>8}  {buscador.mejor_coste:>10.2f}"
+        )
 
     print(f"\n  Nodos explorados : {buscador.nodos_explorados}")
     print(f"  Tiempo CPU       : {tiempo_cpu:.4f} s")
     print(f"{'='*68}\n")
+
 
 if __name__ == "__main__":
     main()

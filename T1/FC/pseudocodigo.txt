@@ -1,0 +1,66 @@
+INICIO
+    A             <- Vacio           // Aviones instanciados
+    asignacion    <- {}              // Mapa avion -> (tiempo, pista)
+    Z_mejor       <- Infinito        // Mejor costo encontrado
+    solucion_mejor <- Vacio
+    RETORNAR FC-Recursivo(A, asignacion, D, Z_mejor)
+FIN
+ 
+FUNCION FC-Recursivo(A, asignacion, D, Z_mejor):
+    Si |A| == |K|:
+        Z <- CalcularCostoTotal(asignacion)  // Suma penalizaciones
+        Si Z < Z_mejor:
+            Z_mejor        <- Z
+            solucion_mejor <- copiar(asignacion)
+        Return solucion_mejor
+ 
+    // Poda por costo: rama no puede mejorar el optimo conocido
+    Si costo_parcial >= Z_mejor:
+        Return solucion_mejor
+ 
+    k* <- SeleccionarVariable(K - A, D)      // Heuristica dom+deg
+ 
+    Para cada (t, r) en OrdenarPorCosto(D(T_k*), D(R_k*)):
+        Si EsConsistente(k*, t, r, asignacion):
+            asignacion[k*] <- (t, r)
+            A       <- A union {k*}
+            D_copia <- CopiarDominios(D)     // Guardar estado
+ 
+            fallo <- Falso
+            Para cada j en K - A:            // Propagacion FC
+                PropagateFC(j, k*, t, r, D)
+                Si D(T_j) esta vacio:
+                    fallo <- Verdadero
+                    Break
+ 
+            Si fallo == Falso:
+                FC-Recursivo(A, asignacion, D, Z_mejor)
+ 
+            D <- D_copia                     // Restaurar dominios
+            A <- A - {k*}
+            Eliminar asignacion[k*]          // Desasignar (backtrack)
+ 
+    Return solucion_mejor
+ 
+FUNCION PropagateFC(j, k*, t, r, D):
+    Para cada v en D(T_j):
+        // Eliminar v si seria incompatible en la misma pista r de k*
+        Si r == R_k* Y (v == t
+                O (t < v  Y  v < t + sep[k*][j])
+                O (v < t  Y  t < v + sep[j][k*])):
+            Eliminar v de D(T_j)
+    // Si j puede ir a otra pista, v sigue siendo valido
+ 
+FUNCION SeleccionarVariable(no_instanciados, D):
+    // dom: menor cardinalidad de dominio activo
+    // +deg: mayor grado de restricciones activas como desempate
+    Return argmin_k  |D(T_k)| x |D(R_k)|
+           con desempate por mayor numero de restricciones activas
+ 
+FUNCION EsConsistente(k*, t, r, asignacion):
+    Para cada (i, (T_i, R_i)) en asignacion:
+        Si R_i == r:
+            Si T_i < t  Y  t < T_i + sep[i][k*] : Return Falso
+            Si t  < T_i Y T_i < t  + sep[k*][i] : Return Falso
+            Si t == T_i                           : Return Falso
+    Return Verdadero

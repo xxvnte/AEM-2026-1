@@ -1,0 +1,59 @@
+BACKTRACKING(D, aviones, sep, num_pistas, dominios):
+    mejor_costo      <- Infinito
+    mejor_asignacion <- ninguna
+    nodos_explorados <- 0
+
+    orden    <- ORDENAR_POR_Ek(aviones)          // heuristica de variable
+    pista_de <- [ninguna] x D
+
+    BT(asignacion, pos, costo_actual):
+        nodos_explorados <- nodos_explorados + 1
+
+        // Poda por cota
+        si costo_actual >= mejor_costo:
+            retornar
+
+        // Caso base: todos los aviones asignados
+        si pos == D:
+            mejor_costo      <- costo_actual
+            mejor_asignacion <- copiar(asignacion)
+            retornar
+
+        i <- orden[pos]
+
+        para t en ORDENAR_POR_CERCANIA(dominios[i], Pk[i]):  // heuristica de valor
+            c_i <- COSTO(aviones[i], t)
+
+            // Poda anticipada por costo parcial
+            si costo_actual + c_i >= mejor_costo:
+                continuar
+
+            para r en {1, ..., num_pistas}:
+                si ES_CONSISTENTE(i, t, r, asignacion, pista_de, sep):
+                    asignacion[i] <- t           // asignar
+                    pista_de[i]   <- r
+                    BT(asignacion, pos + 1, costo_actual + c_i)
+                    eliminar asignacion[i]       // desasignar (backtrack)
+                    pista_de[i]   <- ninguna
+
+    BT({}, 0, 0)
+    retornar mejor_asignacion, mejor_costo
+
+
+ES_CONSISTENTE(i, t_i, r_i, asignacion, pista_de, sep):
+    para cada j en asignacion:
+        si pista_de[j] != r_i:
+            continuar                            // pistas distintas -> sin restriccion
+        si t_i == t_j:
+            retornar Falso                       // aterrizaje simultaneo no permitido
+        si t_i > t_j y t_i < t_j + sep[j][i]:
+            retornar Falso                       // i llega muy pronto despues de j
+        si t_j > t_i y t_j < t_i + sep[i][j]:
+            retornar Falso                       // j llegaria muy pronto despues de i
+    retornar Verdadero
+
+
+COSTO(avion, t):
+    si t < Pk:
+        retornar c_early x (Pk - t)
+    retornar c_late x (t - Pk)
