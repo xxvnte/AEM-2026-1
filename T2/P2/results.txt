@@ -1,0 +1,143 @@
+
+=================================================================
+  TABU SEARCH - Instancia: easy
+=================================================================
+  m=85, n=100, B=12180
+  Parámetros TS: max_iter=200, tenure=10
+
+  [TS desde Greedy Determinista]
+    Inicio   : beneficio=10764, costo=12094
+    Resultado: beneficio=11378, costo=12172
+    Mejora vs partida: +5.70%
+    Tiempo   : 3.4971s
+
+  [TS desde Greedy Estocástico x10, alpha=0.3]
+    Run  1: partida=  10983  TS=  11147  costo=  12168  t=3.4468s
+    Run  2: partida=  10983  TS=  11147  costo=  12168  t=3.5068s
+    Run  3: partida=  10842  TS=  11154  costo=  12163  t=3.4576s
+    Run  4: partida=  11002  TS=  11153  costo=  12132  t=3.4310s
+    Run  5: partida=  10427  TS=  11293  costo=  12142  t=3.5261s
+    Run  6: partida=  10947  TS=  10947  costo=  12083  t=3.4783s
+    Run  7: partida=  10760  TS=  10760  costo=  12159  t=3.3988s
+    Run  8: partida=  10756  TS=  10994  costo=  12066  t=3.3662s
+    Run  9: partida=  10563  TS=  10899  costo=  12136  t=3.4399s
+    Run 10: partida=  10876  TS=  11313  costo=  12160  t=3.5479s
+
+  Estadísticas TS desde Greedy Estocástico:
+    Media     : 11080.70
+    Desv. Est.: 176.28
+    Mejor     : 11313
+    Peor      : 10760
+    Mediana   : 11147.0
+
+  Mejor global (det vs sto): 11378
+
+=================================================================
+  TABU SEARCH - Instancia: medium1
+=================================================================
+  m=185, n=200, B=28159
+  Parámetros TS: max_iter=200, tenure=10
+
+  [TS desde Greedy Determinista]
+    Inicio   : beneficio=10547, costo=28154
+    Resultado: beneficio=10569, costo=28098
+    Mejora vs partida: +0.21%
+    Tiempo   : 16.2493s
+
+  [TS desde Greedy Estocástico x10, alpha=0.3]
+    Run  1: partida=   9792  TS=  10547  costo=  28154  t=15.3463s
+    Run  2: partida=   9197  TS=   9767  costo=  28159  t=13.1447s
+    Run  3: partida=   9653  TS=   9956  costo=  28129  t=16.2576s
+    Run  4: partida=   8657  TS=   9792  costo=  28138  t=16.2011s
+    Run  5: partida=   9806  TS=   9828  costo=  28147  t=14.8184s
+    Run  6: partida=   9956  TS=  10257  costo=  28157  t=15.6813s
+    Run  7: partida=   8693  TS=   9643  costo=  28133  t=14.0281s
+    Run  8: partida=   9656  TS=  10473  costo=  28071  t=17.0025s
+    Run  9: partida=  10445  TS=  10973  costo=  28113  t=18.3876s
+    Run 10: partida=  10090  TS=  10682  costo=  28131  t=16.1042s
+
+  Estadísticas TS desde Greedy Estocástico:
+    Media     : 10191.80
+    Desv. Est.: 458.20
+    Mejor     : 10973
+    Peor      : 9643
+    Mediana   : 10106.5
+
+  Mejor global (det vs sto): 10973
+
+=================================================================
+  TABU SEARCH - Instancia: medium2
+=================================================================
+  m=200, n=200, B=25630
+  Parámetros TS: max_iter=200, tenure=10
+
+  [TS desde Greedy Determinista]
+    Inicio   : beneficio=11397, costo=25612
+    Resultado: beneficio=11445, costo=25587
+    Mejora vs partida: +0.42%
+    Tiempo   : 17.2204s
+
+  [TS desde Greedy Estocástico x10, alpha=0.3]
+    Run  1: partida=  10334  TS=  11166  costo=  25560  t=14.8630s
+    Run  2: partida=  11354  TS=  11354  costo=  25621  t=16.8394s
+    Run  3: partida=  10822  TS=  11150  costo=  25604  t=16.2672s
+    Run  4: partida=  11576  TS=  12034  costo=  25619  t=22.6027s
+    Run  5: partida=  11354  TS=  11997  costo=  25629  t=19.0237s
+    Run  6: partida=  10587  TS=  10883  costo=  25612  t=14.7509s
+    Run  7: partida=  10357  TS=  11012  costo=  25620  t=16.2694s
+    Run  8: partida=   9903  TS=  10951  costo=  25574  t=14.9946s
+    Run  9: partida=  11368  TS=  11681  costo=  25575  t=18.3517s
+    Run 10: partida=  10274  TS=  11062  costo=  25602  t=16.8998s
+
+  Estadísticas TS desde Greedy Estocástico:
+    Media     : 11329.00
+    Desv. Est.: 426.87
+    Mejor     : 12034
+    Peor      : 10883
+    Mediana   : 11158.0
+
+  Mejor global (det vs sto): 12034
+
+=================================================================
+  TABU SEARCH - Instancia: hard
+=================================================================
+  m=500, n=500, B=73927
+  Parámetros TS: max_iter=200, tenure=10
+
+  [TS desde Greedy Determinista]
+    Inicio   : beneficio=8781, costo=73346
+    Resultado: beneficio=9135, costo=73772
+    Mejora vs partida: +4.03%
+    Tiempo   : 77.5668s
+
+  [TS desde Greedy Estocástico x10, alpha=0.3]
+    Run  1: partida=   9068  TS=   9586  costo=  73921  t=93.7318s
+    Run  2: partida=   7573  TS=   9018  costo=  73916  t=82.5036s
+    Run  3: partida=   8219  TS=   8981  costo=  73903  t=82.9256s
+    Run  4: partida=   8092  TS=   8495  costo=  73776  t=64.4030s
+    Run  5: partida=   8401  TS=   8965  costo=  73768  t=83.7415s
+    Run  6: partida=   8046  TS=   8890  costo=  73815  t=82.4054s
+    Run  7: partida=   8922  TS=   9112  costo=  73920  t=82.6482s
+    Run  8: partida=   7648  TS=   8585  costo=  73914  t=73.6563s
+    Run  9: partida=   9200  TS=   9306  costo=  73905  t=87.4533s
+    Run 10: partida=   8415  TS=   9343  costo=  73726  t=78.3623s
+
+  Estadísticas TS desde Greedy Estocástico:
+    Media     : 9028.10
+    Desv. Est.: 333.43
+    Mejor     : 9586
+    Peor      : 8495
+    Mediana   : 8999.5
+
+  Mejor global (det vs sto): 9586
+
+
+===========================================================================
+  RESUMEN GLOBAL - TABU SEARCH
+===========================================================================
+  Inst.       Det.Ini   TS/Det   StoIni  TS/Sto.B  TS/Sto.M TS/Sto.S
+  ----------------------------------------------------------------------
+  easy          10764    11378    11002     11313   11080.7    176.3
+  medium1       10547    10569    10445     10973   10191.8    458.2
+  medium2       11397    11445    11576     12034   11329.0    426.9
+  hard           8781     9135     9200      9586    9028.1    333.4

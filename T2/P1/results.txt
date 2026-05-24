@@ -1,0 +1,159 @@
+
+============================================================
+  Instance: easy
+============================================================
+  m=85, n=100, B=12180
+
+  [Greedy Determinista]
+    Beneficio : 10764
+    Costo     : 12094  (cap=12180)
+    |Sol|     : 32
+    Tiempo    : 0.0020s
+
+  [Greedy Estocástico x10, alpha=0.3]
+    Run  1: beneficio=   10983  costo=   12171  t=0.0030s
+    Run  2: beneficio=   10983  costo=   12171  t=0.0030s
+    Run  3: beneficio=   10842  costo=   12064  t=0.0030s
+    Run  4: beneficio=   11002  costo=   12156  t=0.0030s
+    Run  5: beneficio=   10427  costo=   12173  t=0.0030s
+    Run  6: beneficio=   10947  costo=   12083  t=0.0022s
+    Run  7: beneficio=   10760  costo=   12159  t=0.0030s
+    Run  8: beneficio=   10756  costo=   12173  t=0.0030s
+    Run  9: beneficio=   10563  costo=   12116  t=0.0030s
+    Run 10: beneficio=   10876  costo=   12083  t=0.0030s
+
+  Estadísticas Greedy Estocástico:
+    Media     : 10813.90
+    Desv. Est.: 192.59
+    Mejor     : 11002
+    Peor      : 10427
+    Mediana   : 10859.0
+
+  Comparación:
+    Greedy Det.   : 10764
+    Mejor Estoc.  : 11002
+    Gap (mejor estoc. vs det.): +2.21%
+
+  Tiempo total instancia: 0.0342s
+
+============================================================
+  Instance: medium1
+============================================================
+  m=185, n=200, B=28159
+
+  [Greedy Determinista]
+    Beneficio : 10547
+    Costo     : 28154  (cap=28159)
+    |Sol|     : 27
+    Tiempo    : 0.0102s
+
+  [Greedy Estocástico x10, alpha=0.3]
+    Run  1: beneficio=    9792  costo=   28015  t=0.0110s
+    Run  2: beneficio=    9197  costo=   28087  t=0.0093s
+    Run  3: beneficio=    9653  costo=   28012  t=0.0111s
+    Run  4: beneficio=    8657  costo=   28061  t=0.0100s
+    Run  5: beneficio=    9806  costo=   28131  t=0.0101s
+    Run  6: beneficio=    9956  costo=   27996  t=0.0110s
+    Run  7: beneficio=    8693  costo=   28143  t=0.0101s
+    Run  8: beneficio=    9656  costo=   28062  t=0.0101s
+    Run  9: beneficio=   10445  costo=   28105  t=0.0120s
+    Run 10: beneficio=   10090  costo=   28050  t=0.0088s
+
+  Estadísticas Greedy Estocástico:
+    Media     : 9594.50
+    Desv. Est.: 581.20
+    Mejor     : 10445
+    Peor      : 8657
+    Mediana   : 9724.0
+
+  Comparación:
+    Greedy Det.   : 10547
+    Mejor Estoc.  : 10445
+    Gap (mejor estoc. vs det.): -0.97%
+
+  Tiempo total instancia: 0.1157s
+
+============================================================
+  Instance: medium2
+============================================================
+  m=200, n=200, B=25630
+
+  [Greedy Determinista]
+    Beneficio : 11397
+    Costo     : 25612  (cap=25630)
+    |Sol|     : 31
+    Tiempo    : 0.0150s
+
+  [Greedy Estocástico x10, alpha=0.3]
+    Run  1: beneficio=   10334  costo=   25493  t=0.0100s
+    Run  2: beneficio=   11354  costo=   25621  t=0.0110s
+    Run  3: beneficio=   10822  costo=   25628  t=0.0106s
+    Run  4: beneficio=   11576  costo=   25624  t=0.0126s
+    Run  5: beneficio=   11354  costo=   25564  t=0.0106s
+    Run  6: beneficio=   10587  costo=   25567  t=0.0110s
+    Run  7: beneficio=   10357  costo=   25602  t=0.0112s
+    Run  8: beneficio=    9903  costo=   25518  t=0.0106s
+    Run  9: beneficio=   11368  costo=   25621  t=0.0116s
+    Run 10: beneficio=   10274  costo=   25591  t=0.0101s
+
+  Estadísticas Greedy Estocástico:
+    Media     : 10792.90
+    Desv. Est.: 584.87
+    Mejor     : 11576
+    Peor      : 9903
+    Mediana   : 10704.5
+
+  Comparación:
+    Greedy Det.   : 11397
+    Mejor Estoc.  : 11576
+    Gap (mejor estoc. vs det.): +1.57%
+
+  Tiempo total instancia: 0.1245s
+
+============================================================
+  Instance: hard
+============================================================
+  m=500, n=500, B=73927
+
+  [Greedy Determinista]
+    Beneficio : 8781
+    Costo     : 73346  (cap=73927)
+    |Sol|     : 19
+    Tiempo    : 0.0519s
+
+  [Greedy Estocástico x10, alpha=0.3]
+    Run  1: beneficio=    9068  costo=   73691  t=0.0588s
+    Run  2: beneficio=    7573  costo=   73853  t=0.0475s
+    Run  3: beneficio=    8219  costo=   73918  t=0.0557s
+    Run  4: beneficio=    8092  costo=   73867  t=0.0479s
+    Run  5: beneficio=    8401  costo=   73821  t=0.0544s
+    Run  6: beneficio=    8046  costo=   73925  t=0.0504s
+    Run  7: beneficio=    8922  costo=   73756  t=0.0551s
+    Run  8: beneficio=    7648  costo=   73732  t=0.0467s
+    Run  9: beneficio=    9200  costo=   73837  t=0.0545s
+    Run 10: beneficio=    8415  costo=   73398  t=0.0504s
+
+  Estadísticas Greedy Estocástico:
+    Media     : 8358.40
+    Desv. Est.: 562.14
+    Mejor     : 9200
+    Peor      : 7573
+    Mediana   : 8310.0
+
+  Comparación:
+    Greedy Det.   : 8781
+    Mejor Estoc.  : 9200
+    Gap (mejor estoc. vs det.): +4.77%
+
+  Tiempo total instancia: 0.5905s
+
+
+============================================================
+  RESUMEN GLOBAL
+============================================================
+  Instancia          Det.   Sto.Best   Sto.Mean   Sto.Std
+  -------------------------------------------------------
+  easy              10764      11002    10813.9     192.6
+  medium1           10547      10445     9594.5     581.2
+  medium2           11397      11576    10792.9     584.9
+  hard               8781       9200     8358.4     562.1
