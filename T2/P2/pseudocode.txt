@@ -1,0 +1,47 @@
+TABU_SEARCH(m, B, benefits, weights, adj, sol_inicial,
+            max_iter, tenure):
+
+    current <- sol_inicial
+    best    <- current
+    tabu    <- cola_vacia(capacidad=tenure)   // lista tabu (movimientos inversos)
+
+    PARA iter en 1..max_iter:
+        vecinos <- []
+
+        // Generar vecindad: ADD, REMOVE, SWAP
+        PARA i en (alternativas no seleccionadas):
+            SI factible(current + {i}, B):
+                vecinos.agregar( (eval(current+{i}), ADD(i), REMOVE(i)) )
+
+        PARA i en current:
+            vecinos.agregar( (eval(current-{i}), REMOVE(i), ADD(i)) )
+
+        PARA i_out en current, j_in fuera de current:
+            SI factible((current - {i_out}) + {j_in}, B):
+                vecinos.agregar( (eval(...), SWAP(i_out,j_in), SWAP(j_in,i_out)) )
+
+        // Ordenar descendente por beneficio
+        vecinos <- ordenar_desc(vecinos, clave=beneficio)
+
+        // Seleccionar mejor vecino no tabu (o que supere aspiracion)
+        elegido <- NULL
+        PARA cand en vecinos:
+            SI cand.mov_inv NO en tabu
+               O cand.beneficio > beneficio(best):   // criterio aspiracion
+                elegido <- cand
+                ROMPER
+
+        SI elegido es NULL: elegido <- vecinos[0]   // forzar si todos son tabu
+
+        // Aplicar movimiento
+        current <- aplicar(current, elegido.movimiento)
+
+        // Actualizar lista tabu
+        tabu.agregar(elegido.mov_inverso)
+        SI len(tabu) > tenure: tabu.eliminar_mas_antiguo()
+
+        // Actualizar mejor global
+        SI beneficio(current) > beneficio(best):
+            best <- current
+
+    RETORNAR best
