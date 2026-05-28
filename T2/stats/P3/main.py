@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 from pathlib import Path
 
-# Rutas adaptadas para la P3
+# Rutas
 RESULTS_PATH = Path(__file__).parent.parent.parent / "P3" / "results.txt"
 OUTPUT_DIR = Path(__file__).parent
 
@@ -16,7 +16,7 @@ def parse_results(path: Path) -> dict:
     content = path.read_text(encoding="utf-8", errors="replace")
     instances = {}
 
-    # Separar bloques por instancia de ACO
+    # Separa bloques por instancia de ACO
     for name, block in re.findall(
         r"ACO - Instancia:\s*(\w+)(.*?)(?=ACO - Instancia|RESUMEN|\Z)",
         content,
@@ -24,7 +24,7 @@ def parse_results(path: Path) -> dict:
     ):
         name = name.lower()
 
-        # Parsear Greedy Determinista
+        # Parsea Greedy Determinista
         det_section = re.search(
             r"\[Greedy Determinista\](.*?)(?=\[ACO)",
             block,
@@ -34,7 +34,7 @@ def parse_results(path: Path) -> dict:
         det_resultado = int(re.search(r"Beneficio\s*:\s*(\d+)", det_text).group(1))
         det_time = float(re.search(r"Tiempo\s*:\s*([\d.]+)s", det_text).group(1))
 
-        # Parsear corridas de ACO
+        # Parsea corridas de ACO
         aco_section = re.search(
             r"\[ACO x\d+ corridas.*?\](.*?)(?=Estad[ií]sticas)",
             block,
@@ -52,7 +52,7 @@ def parse_results(path: Path) -> dict:
             )
         ]
 
-        # Parsear Estadísticas
+        # Parsea Estadísticas
         stats_section = re.search(
             r"Estad[ií]sticas ACO.*?Media\s*:\s*([\d.]+).*?Desv\. Est\.\s*:\s*([\d.]+).*?Mejor\s*:\s*(\d+).*?Peor\s*:\s*(\d+).*?Mediana\s*:\s*([\d.]+)",
             block,
@@ -73,14 +73,11 @@ def parse_results(path: Path) -> dict:
     return instances
 
 
-def plot_runs_variance(instances: dict, output_dir: Path):
-    """
-    Gráfica adaptada para ACO: Muestra la dispersión de las 10 corridas
-    independientes vs la línea base determinista.
-    """
+def plot_convergence(instances: dict, output_dir: Path):
+
     fig, axes = plt.subplots(2, 2, figsize=(14, 9))
     fig.suptitle(
-        "Estabilidad y Dispersión de Beneficio — ACO (10 corridas)",
+        "Evolución del Beneficio — Mejora de ACO vs Baseline Determinista",
         fontsize=14,
         fontweight="bold",
     )
@@ -91,30 +88,48 @@ def plot_runs_variance(instances: dict, output_dir: Path):
             
         ax = axes[idx // 2][idx % 2]
         data = instances[name]
+        
         run_nums = list(range(1, len(data["aco_runs"]) + 1))
         aco_results = [r["benefit"] for r in data["aco_runs"]]
+        det_resultado = data["det_resultado"]
+        
+        # Genera los puntos de "partida" conceptual (el baseline determinista)
+        baselines = [det_resultado] * len(run_nums)
 
-        # Graficar los puntos de las 10 corridas
+        # 1. Grafica los puntos del Baseline
+        ax.plot(
+            run_nums,
+            baselines,
+            marker="s",
+            color="gray",
+            linewidth=1.5,
+            markersize=5,
+            linestyle="--",
+            label="Baseline (Greedy Det.)",
+            alpha=0.7,
+        )
+        
+        # 2. Grafica los resultados de ACO
         ax.plot(
             run_nums,
             aco_results,
             marker="o",
             color=PALETTE[idx],
             linewidth=2,
-            markersize=7,
-            label="Resultado ACO (run)",
+            markersize=6,
+            label="Resultado ACO",
         )
 
-        # Línea de referencia Determinista
-        ax.axhline(
-            data["det_resultado"],
-            color="navy",
-            linestyle="-.",
-            linewidth=1.5,
-            label=f"Greedy Det. ({data['det_resultado']:,})",
-        )
-        
-        # Línea de referencia Media ACO
+        # 3. Dibuja las flechas de mejora (Baseline -> ACO) 
+        for i, (b, r) in enumerate(zip(baselines, aco_results)):
+            ax.annotate(
+                "",
+                xy=(i + 1, r),
+                xytext=(i + 1, b),
+                arrowprops=dict(arrowstyle="->", color=PALETTE[idx], alpha=0.4, lw=1.0),
+            )
+
+        # 4. Linea de Media ACO
         ax.axhline(
             data["aco_mean"],
             color="red",
@@ -127,12 +142,13 @@ def plot_runs_variance(instances: dict, output_dir: Path):
         ax.set_xlabel("Run")
         ax.set_ylabel("Beneficio")
         ax.set_xticks(run_nums)
-        ax.legend(fontsize=8)
+        ax.legend(fontsize=7.5)
         ax.grid(True, alpha=0.3)
         ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{int(v):,}"))
 
     plt.tight_layout()
-    fig.savefig(output_dir / "dispersion_corridas.png", dpi=150, bbox_inches="tight")
+    
+    fig.savefig(output_dir / "convergencia_evolucion.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -302,10 +318,10 @@ def main():
         print("Error: No se lograron parsear instancias. Revisa el formato de results.txt")
         return
 
-    # Crear la carpeta contenedora si no existe
+    # Crea la carpeta contenedora si no existe
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    plot_runs_variance(instances, OUTPUT_DIR)
+    plot_convergence(instances, OUTPUT_DIR)
     plot_execution_times(instances, OUTPUT_DIR)
     plot_solution_quality(instances, OUTPUT_DIR)
     print(f"Gráficas generadas exitosamente en: {OUTPUT_DIR}")
