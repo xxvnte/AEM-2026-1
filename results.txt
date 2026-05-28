@@ -1,0 +1,22 @@
+======================================================================
+  RESULTADOS – ACO para Selección de Proyectos con Costos Compartidos
+  CIT3352 – Algoritmos Exactos y Metaheurísticas – Tarea 2, P3
+======================================================================
+
+======================================================================
+  JUSTIFICACIÓN DE PARÁMETROS
+  ─────────────────────────────────────────────────────────────────
+  α = 1.0  : Peso neutro para la feromona; permite equilibrio entre
+             explotación (memoria) y exploración (heurística).
+  β = 2.0  : Mayor importancia a η dinámica; el ratio p_i/costo_marginal
+             es muy informativo en problemas de mochila con recursos
+             compartidos. β=1.5 para instancias difíciles (más exploración).
+  ρ = 0.10 : Evaporación moderada para instancias fáciles/medias.
+  ρ = 0.05 : Evaporación lenta para instancias difíciles (m=500),
+             mantiene diversidad en espacios grandes de búsqueda.
+  n_ants   : Escala con m (40 para hard); diversidad sin costo excesivo.
+  K_greedy = 20 soluciones estocásticas para calibrar τ inicial.
+  MMAS bounds [τ_min=0.01, τ_max=1.0]: evitan convergencia prematura.
+  Estructura feromona en NODOS (no aristas): naturale para problemas
+  de selección de ítems; reduce complejidad de O(m²) a O(m).
+======================================================================

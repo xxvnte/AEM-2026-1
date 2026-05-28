@@ -1,1 +1,141 @@
-# aca van logs resultantes P3
+=================================================================
+  ACO - Instancia: easy
+=================================================================
+  m=85, n=100, B=12180
+  Parámetros ACO: alpha=1.0, beta=2.0, rho=0.10, n_ants=20, max_iter=100
+
+  [Greedy Determinista]
+    Beneficio : 9868
+    Costo     : 12085  (cap=12180)
+    |Sol|     : 28
+    Tiempo    : 0.0005s
+
+  [ACO x10 corridas independientes]
+    Run  1: beneficio=  11748  costo=  12024  t=5.1015s
+    Run  2: beneficio=  11771  costo=  12129  t=5.3946s
+    Run  3: beneficio=  11771  costo=  12129  t=3.4225s
+    Run  4: beneficio=  11487  costo=  12171  t=5.1983s
+    Run  5: beneficio=  11682  costo=  12133  t=4.9400s
+    Run  6: beneficio=  11423  costo=  12090  t=3.5520s
+    Run  7: beneficio=  11468  costo=  12175  t=2.4170s
+    Run  8: beneficio=  11581  costo=  12135  t=3.8158s
+    Run  9: beneficio=  11657  costo=  12141  t=2.5313s
+    Run 10: beneficio=  11677  costo=  12160  t=7.3709s
+
+  Estadísticas ACO:
+    Media     : 11626.50
+    Desv. Est.: 129.59
+    Mejor     : 11771
+    Peor      : 11423
+    Mediana   : 11667.0
+
+  Mejor global (det vs ACO): 11771
+
+=================================================================
+  ACO - Instancia: medium1
+=================================================================
+  m=185, n=200, B=28159
+  Parámetros ACO: alpha=1.0, beta=2.0, rho=0.08, n_ants=30, max_iter=150
+
+  [Greedy Determinista]
+    Beneficio : 6793
+    Costo     : 28157  (cap=28159)
+    |Sol|     : 15
+    Tiempo    : 0.0006s
+
+  [ACO x10 corridas independientes]
+    Run  1: beneficio=  10184  costo=  28157  t=13.8106s
+    Run  2: beneficio=  10570  costo=  28100  t=13.7083s
+    Run  3: beneficio=  10727  costo=  28139  t=14.3197s
+    Run  4: beneficio=  10570  costo=  28100  t=13.3660s
+    Run  5: beneficio=  10831  costo=  28132  t=14.2329s
+    Run  6: beneficio=  10570  costo=  28100  t=13.5902s
+    Run  7: beneficio=  10614  costo=  28017  t=14.6180s
+    Run  8: beneficio=  10570  costo=  28100  t=14.4913s
+    Run  9: beneficio=  10605  costo=  28138  t=14.8367s
+    Run 10: beneficio=  10614  costo=  28017  t=12.9446s
+
+  Estadísticas ACO:
+    Media     : 10585.50
+    Desv. Est.: 164.81
+    Mejor     : 10831
+    Peor      : 10184
+    Mediana   : 10587.5
+
+  Mejor global (det vs ACO): 10831
+
+=================================================================
+  ACO - Instancia: medium2
+=================================================================
+  m=200, n=200, B=25630
+  Parámetros ACO: alpha=1.0, beta=2.0, rho=0.08, n_ants=30, max_iter=150
+
+  [Greedy Determinista]
+    Beneficio : 9833
+    Costo     : 25614  (cap=25630)
+    |Sol|     : 27
+    Tiempo    : 0.0005s
+
+  [ACO x10 corridas independientes]
+    Run  1: beneficio=  11954  costo=  25603  t=17.0087s
+    Run  2: beneficio=  11475  costo=  25600  t=18.4951s
+    Run  3: beneficio=  11491  costo=  25514  t=18.4498s
+    Run  4: beneficio=  11516  costo=  25630  t=22.9033s
+    Run  5: beneficio=  11831  costo=  25577  t=19.4091s
+    Run  6: beneficio=  11444  costo=  25619  t=18.5375s
+    Run  7: beneficio=  12136  costo=  25581  t=17.6677s
+    Run  8: beneficio=  11771  costo=  25613  t=19.0717s
+    Run  9: beneficio=  11592  costo=  25602  t=17.7453s
+    Run 10: beneficio=  12048  costo=  25575  t=18.9789s
+
+  Estadísticas ACO:
+    Media     : 11725.80
+    Desv. Est.: 257.47
+    Mejor     : 12136
+    Peor      : 11444
+    Mediana   : 11681.5
+
+  Mejor global (det vs ACO): 12136
+
+=================================================================
+  ACO - Instancia: hard
+=================================================================
+  m=500, n=500, B=73927
+  Parámetros ACO: alpha=1.0, beta=1.5, rho=0.05, n_ants=40, max_iter=200
+
+  [Greedy Determinista]
+    Beneficio : 6888
+    Costo     : 73541  (cap=73927)
+    |Sol|     : 14
+    Tiempo    : 0.0046s
+
+  [ACO x10 corridas independientes]
+    Run  1: beneficio=  9310   costo=  73926  t=115.1899s
+    Run  2: beneficio=  9367   costo=  73813  t=112.6550s
+    Run  3: beneficio=  8928   costo=  73704  t=113.6912s
+    Run  4: beneficio=  9028   costo=  73769  t=116.7025s
+    Run  5: beneficio=  9118   costo=  73913  t=117.7250s
+    Run  6: beneficio=  9008   costo=  73739  t=106.9498s
+    Run  7: beneficio=  9030   costo=  73811  t=107.2913s
+    Run  8: beneficio=  9247   costo=  73644  t=118.4393s
+    Run  9: beneficio=  9384   costo=  73925  t=122.7467s
+    Run 10: beneficio=  9060   costo=  73675  t=117.7147s
+
+  Estadísticas ACO:
+    Media     : 9148.00
+    Desv. Est.: 164.88
+    Mejor     : 9384
+    Peor      : 8928
+    Mediana   : 9089.0
+
+  Mejor global (det vs ACO): 9384
+
+===========================================================================
+  RESUMEN GLOBAL - ACO
+===========================================================================
+  Inst.       Det.Ini   ACO.Best  ACO.Mean  ACO.Std
+  ----------------------------------------------------------------------
+  easy            9868      11771   11626.5    129.6
+  medium1         6793      10831   10585.5    164.8
+  medium2         9833      12136   11725.8    257.5
+  hard            6888       9384    9148.0    164.9
