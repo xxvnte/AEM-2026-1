@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 
-CASES_DIR = Path(__file__).parent / "cases"
+INSTANCES_DIR = Path(__file__).parent / "instances"
 
 ALPHA_ARC = 0.0981
 BETA_VEH = 2.11
@@ -114,54 +114,147 @@ def parse_instance_name(name: str) -> tuple[int, int]:
     return int(m.group(1)), int(m.group(2))
 
 
+def _instance_path(name: str) -> Path:
+    for sub in ("small", "large"):
+        path = INSTANCES_DIR / sub / f"{name}.txt"
+        if path.exists():
+            return path
+    raise FileNotFoundError(
+        f"No se encontró la instancia '{name}' en "
+        f"{INSTANCES_DIR}/small ni {INSTANCES_DIR}/large"
+    )
+
+
+def _parse_meta_line(line: str) -> tuple[str, str] | None:
+    if ":" in line:
+        key, value = line.split(":", 1)
+        return key.strip(), value.strip()
+    if " " in line:
+        key, value = line.split(maxsplit=1)
+        return key.strip(), value.strip()
+    return None
+
+
+def _meta_float(meta: dict[str, str], *keys: str, default: float) -> float:
+    for key in keys:
+        if key in meta:
+            return float(meta[key])
+    return default
+
+
 def load_instance(name: str) -> tuple[list[Vertex], dict[tuple[int, int], Arc]]:
-    path = CASES_DIR / f"{name}.txt"
-    if not path.exists():
-        raise FileNotFoundError(f"No se encontró la instancia: {path}")
-    text = path.read_text(encoding="utf-8")
+    path = _instance_path(name)
     lines = [
-        ln.strip() for ln in text.splitlines() if ln.strip() and not ln.startswith("#")
+        ln.strip()
+        for ln in path.read_text(encoding="utf-8").splitlines()
+        if ln.strip() and not ln.startswith("#")
     ]
     meta: dict[str, str] = {}
     i = 0
-    while i < len(lines) and lines[i] not in ("NODES", "SPEEDS"):
-        if " " in lines[i]:
-            k, v = lines[i].split(maxsplit=1)
-            meta[k] = v
+    section_headers = {
+        "NODE_COORD_SECTION",
+        "DISTANCE_MATRIX_MILES",
+        "SPEED_MATRIX_KMH",
+        "NODES",
+        "SPEEDS",
+        "EOF",
+    }
+    while i < len(lines) and lines[i] not in section_headers:
+        parsed = _parse_meta_line(lines[i])
+        if parsed:
+            meta[parsed[0]] = parsed[1]
         i += 1
+
+    miles_to_m = _meta_float(meta, "MILES_TO_METERS", default=MILES_TO_M)
+    alpha = _meta_float(meta, "ALPHA", "ALPHA_ARC", default=ALPHA_ARC)
+    beta = _meta_float(meta, "BETA", "BETA_VEH", default=BETA_VEH)
+    eff_d = _meta_float(meta, "EFF_BATTERY_DISCHARGE", "EFF_D", default=EFF_D)
+    eff_m = _meta_float(meta, "EFF_MOTOR", "EFF_M", default=EFF_M)
+    curb_kg = _meta_float(meta, "CURB_WEIGHT_KG", default=VEHICLE_CURB_WEIGHT_KG)
 
     vertices: list[Vertex] = []
     id_map: dict[int, Vertex] = {}
-    while i < len(lines) and lines[i] != "SPEEDS":
-        if lines[i] == "NODES":
+    dist_miles: list[list[float]] = []
+    speed_kmh: list[list[int]] = []
+    speed_map: dict[tuple[int, int], int] = {}
+
+    while i < len(lines) and lines[i] != "EOF":
+        section = lines[i]
+        if section == "NODE_COORD_SECTION":
             i += 1
+            while i < len(lines) and lines[i] not in section_headers:
+                parts = re.split(r"\s+", lines[i])
+                vid = int(parts[0])
+                kind = parts[1]
+                x_m = float(parts[2]) * miles_to_m
+                y_m = float(parts[3]) * miles_to_m
+                demand = float(parts[4])
+                v = Vertex(vid, x_m, y_m, demand)
+                if kind == "D":
+                    v.is_depot = True
+                elif kind == "S":
+                    v.is_station = True
+                else:
+                    v.is_customer = True
+                vertices.append(v)
+                id_map[vid] = v
+                i += 1
             continue
-        parts = lines[i].split()
-        vid = int(parts[0])
-        x, y, demand = float(parts[1]), float(parts[2]), float(parts[3])
-        kind = parts[4] if len(parts) > 4 else "customer"
-        v = Vertex(vid, x, y, demand)
-        if kind in ("depot_start", "depot_end"):
-            v.is_depot = True
-        elif kind == "station":
-            v.is_station = True
-        else:
-            v.is_customer = True
-        vertices.append(v)
-        id_map[vid] = v
+
+        if section == "NODES":
+            i += 1
+            while i < len(lines) and lines[i] not in section_headers:
+                parts = lines[i].split()
+                vid = int(parts[0])
+                x, y, demand = float(parts[1]), float(parts[2]), float(parts[3])
+                kind = parts[4] if len(parts) > 4 else "customer"
+                v = Vertex(vid, x, y, demand)
+                if kind in ("depot_start", "depot_end", "depot"):
+                    v.is_depot = True
+                elif kind == "station":
+                    v.is_station = True
+                else:
+                    v.is_customer = True
+                vertices.append(v)
+                id_map[vid] = v
+                i += 1
+            continue
+
+        if section == "DISTANCE_MATRIX_MILES":
+            i += 1
+            while i < len(lines) and lines[i] not in section_headers:
+                dist_miles.append([float(x) for x in re.split(r"\s+", lines[i])])
+                i += 1
+            continue
+
+        if section == "SPEED_MATRIX_KMH":
+            i += 1
+            while i < len(lines) and lines[i] not in section_headers:
+                speed_kmh.append([int(x) for x in re.split(r"\s+", lines[i])])
+                i += 1
+            continue
+
+        if section == "SPEEDS":
+            i += 1
+            while i < len(lines) and lines[i] not in section_headers:
+                a, b, spd = lines[i].split()
+                speed_map[(int(a), int(b))] = int(spd)
+                i += 1
+            continue
+
         i += 1
 
     vertices.sort(key=lambda v: v.idx)
-    speed_map: dict[tuple[int, int], int] = {}
-    while i < len(lines):
-        if lines[i] == "SPEEDS":
-            i += 1
-            continue
-        a, b, spd = lines[i].split()
-        speed_map[(int(a), int(b))] = int(spd)
-        i += 1
+    n = len(vertices)
 
-    if not speed_map:
+    if speed_kmh:
+        speed_map = {
+            (a, b): speed_kmh[a][b]
+            for a in range(n)
+            for b in range(n)
+            if a != b and speed_kmh[a][b] > 0
+        }
+    elif not speed_map:
         seed = int(meta.get("SPEED_SEED", 0))
         rng = random.Random(seed)
         ids = [v.idx for v in vertices]
@@ -171,15 +264,18 @@ def load_instance(name: str) -> tuple[list[Vertex], dict[tuple[int, int], Arc]]:
                     speed_map[(a, b)] = rng.choice(SPEED_SET_KMH)
 
     arcs: dict[tuple[int, int], Arc] = {}
-    for (a, b), spd_kmh in speed_map.items():
-        va, vb = id_map[a], id_map[b]
-        dx, dy = va.x - vb.x, va.y - vb.y
-        dist = math.sqrt(dx * dx + dy * dy)
-        spd_ms = spd_kmh * 1000.0 / 3600.0
+    for (a, b), spd_val in speed_map.items():
+        if dist_miles:
+            dist = dist_miles[a][b] * miles_to_m
+        else:
+            va, vb = id_map[a], id_map[b]
+            dx, dy = va.x - vb.x, va.y - vb.y
+            dist = math.sqrt(dx * dx + dy * dy)
+        spd_ms = spd_val * 1000.0 / 3600.0
         e_empty = (
-            (ALPHA_ARC * VEHICLE_CURB_WEIGHT_KG * dist + BETA_VEH * spd_ms**2 * dist)
-            * EFF_D
-            * EFF_M
+            (alpha * curb_kg * dist + beta * spd_ms**2 * dist)
+            * eff_d
+            * eff_m
             * JOULES_TO_KWH
         )
         arcs[(a, b)] = Arc(a, b, dist, spd_ms, e_empty)
@@ -957,7 +1053,6 @@ def solve_distance_minimizing(
     seed: int = 42,
     reserve_pct: float = 0.0,
 ) -> tuple[list[list[int]], float]:
-    """Rutas con objetivo distancia + DP; retorna consumo energético resultante (Tabla 6)."""
     vertices = {v.idx: v for v in vertices_list}
     station_idxs = [v.idx for v in vertices_list if v.is_station]
     depot_idxs = [v.idx for v in vertices_list if v.is_depot]
@@ -1302,9 +1397,9 @@ def run_large_instances(seed=42):
     )
 
 
-def run_table4(seed=42):
+def run_recharge_stations(seed=42):
     print("\n" + "=" * 65)
-    print("Análisis por número de estaciones de recarga (EH-SA/TS)")
+    print("Estaciones de recarga - energía y visitas medias (EH-SA/TS)")
     print("=" * 65)
     print(f"{'Grupo':>6} {'Energía':>12} {'VisEst':>10} {'n':>4}")
     print("-" * 40)
@@ -1325,9 +1420,9 @@ def run_table4(seed=42):
     return results
 
 
-def run_table5(seed=42):
+def run_battery_reserve(seed=42):
     print("\n" + "=" * 65)
-    print("Análisis por nivel mínimo de batería reservada (EH-SA/TS)")
+    print("Reserva de batería - energía y visitas medias (EH-SA/TS)")
     print("=" * 65)
     print("Reserva: 0% → 110 kWh usable; 10% → 99 kWh; 20% → 88 kWh.")
     print(f"{'Nivel':>6} {'Usable':>8} {'Energía':>12} {'VisEst':>10}")
@@ -1355,9 +1450,9 @@ def run_table5(seed=42):
     return results
 
 
-def run_table6(seed=42):
+def run_energy_vs_distance(seed=42):
     print("\n" + "=" * 90)
-    print("Minimización energía vs minimización distancia (EH-SA/TS)")
+    print("Energía vs distancia — consumo bajo cada objetivo (EH-SA/TS)")
     print("=" * 90)
     hdr = f"{'Inst':<14} {'E_min':>10} {'E_dist':>10} {'% inc':>10} {'t(s)':>6}"
     print(hdr)
@@ -1390,7 +1485,14 @@ def run_table6(seed=42):
 
 
 def save_results(
-    small, large, t4, t5, t6, path="benchmarks.txt", extended=None, bank=None
+    small,
+    large,
+    recharge_stations,
+    battery_reserve,
+    energy_vs_distance,
+    path="benchmarks.txt",
+    extended=None,
+    bank=None,
 ):
     lines = [
         "RESULTADOS EH-SA/TS",
@@ -1411,21 +1513,21 @@ def save_results(
 
     _batch_section("INSTANCIAS PEQUEÑAS", small)
     _batch_section("INSTANCIAS GRANDES", large)
-    if t4:
-        lines.append("POR NÚMERO DE ESTACIONES")
-        for r in t4:
+    if recharge_stations:
+        lines.append("ESTACIONES DE RECARGA (Tabla 4 paper)")
+        for r in recharge_stations:
             lines.append(f"{r['group']}: E={r['energy']} vis={r['visits']} n={r['n']}")
         lines.append("")
-    if t5:
-        lines.append("POR RESERVA DE BATERÍA")
-        for r in t5:
+    if battery_reserve:
+        lines.append("RESERVA DE BATERÍA (Tabla 5 paper)")
+        for r in battery_reserve:
             lines.append(
                 f"{r['threshold']}: E={r['energy']} vis={r['visits']} usable={r['usable_kwh']} kWh"
             )
         lines.append("")
-    if t6:
-        lines.append("ENERGÍA vs DISTANCIA")
-        for r in t6:
+    if energy_vs_distance:
+        lines.append("ENERGÍA vs DISTANCIA (Tabla 6 paper)")
+        for r in energy_vs_distance:
             lines.append(
                 f"{r['instance']}: E_min={r['energy_min']} E_dist={r['energy_dist']} "
                 f"inc={r['pct_inc']}%"
@@ -1446,9 +1548,9 @@ def print_usage():
     print("  all          Ejecutar todos los benchmarks EH-SA/TS (default)")
     print("  small        Instancias pequeñas C12R2-C24R2")
     print("  large        Instancias grandes C25-C150")
-    print("  table4       Análisis por número de estaciones")
-    print("  table5       Análisis por batería reservada")
-    print("  table6       Energía vs distancia")
+    print("  recharge-stations    Estaciones de recarga")
+    print("  battery-reserve      Reserva de batería")
+    print("  energy-vs-distance   Objetivo energía vs distancia")
     print("  extended     C10R2, C11R2")
     print("  bank         Todas las instancias del banco (55)")
     print("  single NAME  Una instancia (ej: C25R2-1)")
@@ -1507,7 +1609,14 @@ def main():
         print(f"Visitas estación: {row['station_visits']}")
         return
 
-    small, large, t4, t5, t6, extended, bank = [], [], [], [], [], [], []
+    small, large, recharge_stations, battery_reserve, energy_vs_distance = (
+        [],
+        [],
+        [],
+        [],
+        [],
+    )
+    extended, bank = [], []
     if mode in ("all", "small"):
         small = run_small_instances(seed)
     if mode in ("all", "extended"):
@@ -1516,14 +1625,30 @@ def main():
         bank = run_own_bank(seed)
     if mode in ("all", "large"):
         large = run_large_instances(seed)
-    if mode in ("all", "table4"):
-        t4 = run_table4(seed)
-    if mode in ("all", "table5"):
-        t5 = run_table5(seed)
-    if mode in ("all", "table6"):
-        t6 = run_table6(seed)
-    if save and (small or large or t4 or t5 or t6 or extended or bank):
-        save_results(small, large, t4, t5, t6, extended=extended, bank=bank)
+    if mode in ("all", "recharge-stations"):
+        recharge_stations = run_recharge_stations(seed)
+    if mode in ("all", "battery-reserve"):
+        battery_reserve = run_battery_reserve(seed)
+    if mode in ("all", "energy-vs-distance"):
+        energy_vs_distance = run_energy_vs_distance(seed)
+    if save and (
+        small
+        or large
+        or recharge_stations
+        or battery_reserve
+        or energy_vs_distance
+        or extended
+        or bank
+    ):
+        save_results(
+            small,
+            large,
+            recharge_stations,
+            battery_reserve,
+            energy_vs_distance,
+            extended=extended,
+            bank=bank,
+        )
     print("\n Experimento completado :D")
 
 
