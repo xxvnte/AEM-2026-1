@@ -1,0 +1,49 @@
+======================================================================
+EH-SA/TS - Enhanced Hybrid Simulated Annealing / Tabu Search
+EVRP - Electric Vehicle Routing Problem
+======================================================================
+Modo: small | Semilla base: 42
+
+====================================================================================================
+MODO -small | INSTANCIAS PEQUEÑAS (C12R2-C24R2)
+Comparación EH-SA/TS vs solver exacto (MIP OR-Tools)
+====================================================================================================
+Métricas:
+  ref     = energía MIP OR-Tools (límite de optimalidad / factible)
+  Absolute Gap (EH) = (E_EH - ref) / ref x 100%
+  Límite MIP: 300 s por instancia | Semilla EH: 42
+Inst         OR-Tools   t_MIP             Estado   EH-SA/TS   t_EH    Gap %
+----------------------------------------------------------------------------------------------------
+C12R2          226.42    8.5s             OPTIMO     342.90   0.1s   51.44%
+C13R2          263.92  300.0s FACTIBLE (lim. tiempo)     541.60   0.2s  105.22%
+C14R2          205.55   45.6s             OPTIMO     132.40   0.0s  -35.59%
+C15R2          225.05   39.9s             OPTIMO      81.58   0.0s  -63.75%
+C16R2          271.03   33.0s             OPTIMO     252.96   0.1s   -6.66%
+C17R2          173.95    7.2s             OPTIMO     193.91   0.1s   11.48%
+C18R2          302.76  300.8s FACTIBLE (lim. tiempo)     214.53   0.0s  -29.14%
+C19R2          219.93   13.3s             OPTIMO     140.86   0.1s  -35.95%
+C20R2          287.95  301.7s FACTIBLE (lim. tiempo)     141.55   0.0s  -50.84%
+C21R2          291.29  301.0s FACTIBLE (lim. tiempo)      99.47   0.0s  -65.85%
+C22R2          262.00  269.3s             OPTIMO      93.16   0.0s  -64.44%
+C23R2          254.73   32.3s             OPTIMO      63.15   0.0s  -75.21%
+C24R2          277.45  302.5s FACTIBLE (lim. tiempo)     210.26   0.1s  -24.22%
+----------------------------------------------------------------------------------------------------
+Promedio       250.93                                192.95         -21.81%
+MIP resueltos: 13/13
+
+--- Resumen comparativo (modo -small) ---
+  C12R2: OR-Tools=226.42 kWh, EH-SA/TS=342.90 kWh, Gap=51.44%
+  C13R2: OR-Tools=263.92 kWh, EH-SA/TS=541.60 kWh, Gap=105.22%
+  C14R2: OR-Tools=205.55 kWh, EH-SA/TS=132.40 kWh, Gap=-35.59%
+  C15R2: OR-Tools=225.05 kWh, EH-SA/TS=81.58 kWh, Gap=-63.75%
+  C16R2: OR-Tools=271.03 kWh, EH-SA/TS=252.96 kWh, Gap=-6.66%
+  C17R2: OR-Tools=173.95 kWh, EH-SA/TS=193.91 kWh, Gap=11.48%
+  C18R2: OR-Tools=302.76 kWh, EH-SA/TS=214.53 kWh, Gap=-29.14%
+  C19R2: OR-Tools=219.93 kWh, EH-SA/TS=140.86 kWh, Gap=-35.95%
+  C20R2: OR-Tools=287.95 kWh, EH-SA/TS=141.55 kWh, Gap=-50.84%
+  C21R2: OR-Tools=291.29 kWh, EH-SA/TS=99.47 kWh, Gap=-65.85%
+  C22R2: OR-Tools=262.00 kWh, EH-SA/TS=93.16 kWh, Gap=-64.44%
+  C23R2: OR-Tools=254.73 kWh, EH-SA/TS=63.15 kWh, Gap=-75.21%
+  C24R2: OR-Tools=277.45 kWh, EH-SA/TS=210.26 kWh, Gap=-24.22%
+
+ Experimento completado :D

@@ -5,12 +5,21 @@ import heapq
 import math
 import random
 import re
+import statistics
 import sys
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
+
+try:
+    from ortools.linear_solver import pywraplp
+
+    ORTOOLS_AVAILABLE = True
+except ImportError:
+    pywraplp = None
+    ORTOOLS_AVAILABLE = False
 
 INSTANCES_DIR = Path(__file__).parent / "instances"
 LOGS_DIR = Path(__file__).parent / "logs"
@@ -33,6 +42,9 @@ K_TABU = 12
 GAMMA_CAP = 200.0
 GAMMA_BATT = 100.0
 UMBRAL = 100
+
+MIP_TIME_LIMIT_DEFAULT = 300.0
+LARGE_NUM_RUNS_DEFAULT = 10
 
 BATTERY_RESERVE_LEVELS = {"0%": 0.0, "10%": 10.0, "20%": 20.0}
 
@@ -104,8 +116,12 @@ def battery_reserve_kwh(reserve_pct: float) -> float:
 
 
 def relative_gap(solution: float, reference: float) -> float:
-    """Gap relativo (Sol - ref) / ref x 100%."""
+    """Gap relativo (Sol - ref) / ref x 100%"""
     return (solution - reference) / reference * 100.0 if reference > 0 else 0.0
+
+
+def absolute_gap(solution: float, reference: float) -> float:
+    return relative_gap(solution, reference)
 
 
 def parse_instance_name(name: str) -> tuple[int, int]:
@@ -290,6 +306,133 @@ def arc_energy_kwh(arcs: dict, i: int, j: int, load_kg: float) -> float:
         return 1e9
     e_load = ALPHA_ARC * load_kg * arc.dist_m * EFF_D * EFF_M * JOULES_TO_KWH
     return arc.energy_kwh_empty + e_load
+
+
+def solve_mip_ortools(
+    vertices: list[Vertex],
+    arcs: dict[tuple[int, int], Arc],
+    time_limit_s: float = MIP_TIME_LIMIT_DEFAULT,
+    max_station_copies: int = 3,
+) -> tuple[float, str]:
+    """MIP de energía (resuelto con OR-Tools)."""
+    if not ORTOOLS_AVAILABLE:
+        return float("inf"), "OR-Tools no instalado (pip install ortools)"
+
+    vmap = {v.idx: v for v in vertices}
+    depot_idxs = [v.idx for v in vertices if v.is_depot]
+    station_idxs = [v.idx for v in vertices if v.is_station]
+    customer_idxs = [v.idx for v in vertices if v.is_customer]
+
+    depot_start_vid = depot_idxs[0]
+    depot_end_vid = depot_idxs[-1] if len(depot_idxs) > 1 else depot_idxs[0]
+    n_customers = len(customer_idxs)
+    max_vehicles = n_customers
+
+    station_copies = []
+    for s in station_idxs:
+        for _ in range(max_station_copies * max_vehicles):
+            station_copies.append(s)
+
+    all_nodes = [depot_start_vid] + customer_idxs + station_copies + [depot_end_vid]
+    n_nodes = len(all_nodes)
+    depot_start_idx = 0
+    depot_end_idx = n_nodes - 1
+    demands_kg = {c: vmap[c].demand_tons * 1000.0 for c in customer_idxs}
+    cap_kg = VEHICLE_CAPACITY_TONS * 1000.0
+    bat_cap = BATTERY_CAPACITY_KWH
+    big_m_load = cap_kg + 1.0
+    big_m_batt = bat_cap + 1.0
+
+    solver = pywraplp.Solver.CreateSolver("SCIP") or pywraplp.Solver.CreateSolver("CBC")
+    if solver is None:
+        return float("inf"), "Sin solver MIP disponible"
+    solver.SetTimeLimit(int(time_limit_s * 1000))
+
+    x = {
+        (i_idx, j_idx): solver.BoolVar(f"x_{i_idx}_{j_idx}")
+        for i_idx in range(n_nodes)
+        for j_idx in range(n_nodes)
+        if i_idx != j_idx and i_idx != depot_end_idx and j_idx != depot_start_idx
+    }
+    load = [solver.NumVar(0.0, cap_kg, f"load_{k}") for k in range(n_nodes)]
+    batt = [solver.NumVar(0.0, bat_cap, f"batt_{k}") for k in range(n_nodes)]
+
+    for j_idx, j in enumerate(all_nodes):
+        if j_idx == depot_start_idx:
+            continue
+        in_sum = solver.Sum(
+            x[i_idx, j_idx] for i_idx in range(n_nodes) if (i_idx, j_idx) in x
+        )
+        if j in customer_idxs:
+            solver.Add(in_sum == 1)
+        elif j_idx == depot_end_idx:
+            solver.Add(in_sum <= max_vehicles)
+        else:
+            solver.Add(in_sum <= 1)
+
+    for i_idx, i in enumerate(all_nodes):
+        if i_idx == depot_end_idx:
+            continue
+        out_sum = solver.Sum(
+            x[i_idx, j_idx] for j_idx in range(n_nodes) if (i_idx, j_idx) in x
+        )
+        if i in customer_idxs:
+            solver.Add(out_sum == 1)
+        elif i_idx == depot_start_idx:
+            solver.Add(out_sum <= max_vehicles)
+        else:
+            in_i = solver.Sum(
+                x[k_idx, i_idx] for k_idx in range(n_nodes) if (k_idx, i_idx) in x
+            )
+            solver.Add(out_sum == in_i)
+
+    solver.Add(load[depot_start_idx] == 0.0)
+    solver.Add(batt[depot_start_idx] == bat_cap)
+
+    for (i_idx, j_idx), var in x.items():
+        i, j = all_nodes[i_idx], all_nodes[j_idx]
+        d_j = demands_kg.get(j, 0.0)
+        solver.Add(load[j_idx] >= load[i_idx] + d_j - big_m_load * (1 - var))
+        solver.Add(load[j_idx] <= load[i_idx] + d_j + big_m_load * (1 - var))
+        solver.Add(load[j_idx] <= cap_kg)
+
+        load_approx = demands_kg.get(i, 0.0) * 0.5
+        e_ij = arc_energy_kwh(arcs, i, j, load_approx)
+        j_is_charger = j_idx == depot_end_idx or (j in vmap and vmap[j].is_station)
+
+        if j_is_charger:
+            solver.Add(batt[j_idx] <= bat_cap + big_m_batt * (1 - var))
+            solver.Add(batt[j_idx] >= bat_cap - big_m_batt * (1 - var))
+        else:
+            solver.Add(batt[j_idx] >= batt[i_idx] - e_ij - big_m_batt * (1 - var))
+
+    solver.Minimize(
+        solver.Sum(
+            arc_energy_kwh(
+                arcs,
+                all_nodes[i_idx],
+                all_nodes[j_idx],
+                demands_kg.get(all_nodes[i_idx], 0.0) * 0.5,
+            )
+            * var
+            for (i_idx, j_idx), var in x.items()
+        )
+    )
+
+    status = solver.Solve()
+    status_map = {
+        pywraplp.Solver.OPTIMAL: "OPTIMO",
+        pywraplp.Solver.FEASIBLE: "FACTIBLE (lim. tiempo)",
+        pywraplp.Solver.INFEASIBLE: "INFACTIBLE",
+        pywraplp.Solver.UNBOUNDED: "NO ACOTADO",
+        pywraplp.Solver.ABNORMAL: "ANORMAL",
+        pywraplp.Solver.NOT_SOLVED: "NO RESUELTO",
+    }
+    status_str = status_map.get(status, "DESCONOCIDO")
+
+    if status in (pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE):
+        return solver.Objective().Value(), status_str
+    return float("inf"), status_str
 
 
 def arc_dist(arcs: dict, i: int, j: int) -> float:
@@ -1366,12 +1509,175 @@ def _run_eh_batch(
     return results
 
 
-def run_small_instances(seed=42):
-    return _run_eh_batch(
-        SMALL_INSTANCES,
-        seed,
-        title="EH-SA/TS - instancias pequeñas (C12R2-C24R2)",
+def _large_run_seeds(base_seed: int, num_runs: int) -> list[int]:
+    return [base_seed + i * 9973 for i in range(num_runs)]
+
+
+def run_small_benchmark(
+    seed: int = 42,
+    mip_time_limit_s: float = MIP_TIME_LIMIT_DEFAULT,
+) -> list[dict]:
+    """Instancias pequeñas: EH-SA/TS vs OR-Tools"""
+    print("\n" + "=" * 100)
+    print("MODO -small | INSTANCIAS PEQUEÑAS (C12R2-C24R2)")
+    print("Comparación EH-SA/TS vs solver exacto (MIP OR-Tools)")
+    print("=" * 100)
+    print("Métricas:")
+    print("  ref     = energía MIP OR-Tools (límite de optimalidad / factible)")
+    print("  Absolute Gap (EH) = (E_EH - ref) / ref x 100%")
+    print(f"  Límite MIP: {mip_time_limit_s:.0f} s por instancia | Semilla EH: {seed}")
+    hdr = (
+        f"{'Inst':<10} {'OR-Tools':>10} {'t_MIP':>7} {'Estado':>18} "
+        f"{'EH-SA/TS':>10} {'t_EH':>6} {'Gap %':>8}"
     )
+    print(hdr)
+    print("-" * 100)
+
+    results = []
+    for name in SMALL_INSTANCES:
+        n_c, n_s = parse_instance_name(name)
+        vertices, arcs = load_instance(name)
+
+        t0 = time.time()
+        mip_e, mip_status = solve_mip_ortools(
+            vertices, arcs, time_limit_s=mip_time_limit_s
+        )
+        t_mip = time.time() - t0
+
+        t0 = time.time()
+        _, eh_e, _ = run_eh_sats(vertices, arcs, seed=seed)
+        t_eh = time.time() - t0
+
+        ref = mip_e if mip_e < 1e17 else None
+        gap = absolute_gap(eh_e, ref) if ref is not None else float("nan")
+        mip_str = f"{mip_e:.2f}" if ref is not None else "---"
+        gap_str = f"{gap:.2f}" if ref is not None else "---"
+
+        row = dict(
+            instance=name,
+            customers=n_c,
+            stations=n_s,
+            mip_energy=round(mip_e, 2) if ref is not None else None,
+            mip_status=mip_status,
+            mip_time_s=round(t_mip, 2),
+            eh_energy=round(eh_e, 2),
+            eh_time_s=round(t_eh, 2),
+            gap_pct=round(gap, 2) if ref is not None else None,
+        )
+        results.append(row)
+        print(
+            f"{name:<10} {mip_str:>10} {t_mip:>6.1f}s {mip_status:>18} "
+            f"{eh_e:>10.2f} {t_eh:>5.1f}s {gap_str:>7}%"
+        )
+
+    valid = [r for r in results if r["gap_pct"] is not None]
+    solved = [r for r in results if r["mip_energy"] is not None]
+    if valid:
+        avg_mip = sum(r["mip_energy"] for r in solved) / len(solved)
+        avg_eh = sum(r["eh_energy"] for r in valid) / len(valid)
+        avg_gap = sum(r["gap_pct"] for r in valid) / len(valid)
+        print("-" * 100)
+        print(
+            f"{'Promedio':<10} {avg_mip:>10.2f} {'':>7} {'':>18} "
+            f"{avg_eh:>10.2f} {'':>6} {avg_gap:>7.2f}%"
+        )
+        print(f"MIP resueltos: {len(solved)}/{len(results)}")
+    elif not ORTOOLS_AVAILABLE:
+        print("\nInstale OR-Tools: pip install ortools")
+
+    print("\n--- Resumen comparativo (modo -small) ---")
+    for r in results:
+        if r["gap_pct"] is not None:
+            print(
+                f"  {r['instance']}: OR-Tools={r['mip_energy']:.2f} kWh, "
+                f"EH-SA/TS={r['eh_energy']:.2f} kWh, Gap={r['gap_pct']:.2f}%"
+            )
+        else:
+            print(f"  {r['instance']}: EH-SA/TS={r['eh_energy']:.2f} kWh (sin ref MIP)")
+
+    return results
+
+
+def run_large_multi_run(
+    base_seed: int = 42,
+    num_runs: int = LARGE_NUM_RUNS_DEFAULT,
+) -> list[dict]:
+    """Grandes: multi-run EH-SA/TS; RPD relativo vs B* (mejor corrida), estilo Tabla 3."""
+    seeds = _large_run_seeds(base_seed, num_runs)
+    print("\n" + "=" * 105)
+    print("MODO -large | INSTANCIAS GRANDES (C25-C150)")
+    print(f"EH-SA/TS: {num_runs} runs, semillas distintas")
+    print("=" * 105)
+    print("Métricas (RPD entre soluciones; solo EH-SA/TS):")
+    print("  B*       = min(E_run)  mejor energía entre los runs")
+    print("  Media, Desviación Estándar = estadísticas de energía por instancia")
+    print("  RPD_run  = (E_run - B*) / B* x 100%")
+    print(f"  Semillas: {seeds}")
+    hdr = (
+        f"{'Inst':<14} {'B*':>10} {'Media':>10} {'Std':>8} "
+        f"{'RPD media':>10} {'RPD max':>9} {'t total':>8}"
+    )
+    print(hdr)
+    print("-" * 105)
+
+    summary = []
+    for name in LARGE_INSTANCES:
+        energies: list[float] = []
+        times: list[float] = []
+        for run_seed in seeds:
+            row = _run_eh_on_instance(name, run_seed)
+            energies.append(row["energy"])
+            times.append(row["time_s"])
+
+        best = min(energies)
+        mean_e = statistics.mean(energies)
+        std_e = statistics.stdev(energies) if len(energies) > 1 else 0.0
+        rpds = [absolute_gap(e, best) for e in energies]
+        mean_rpd = statistics.mean(rpds)
+        max_rpd = max(rpds)
+        total_t = sum(times)
+
+        summary.append(
+            dict(
+                instance=name,
+                seeds=seeds,
+                energies=energies,
+                best=round(best, 2),
+                mean=round(mean_e, 2),
+                std=round(std_e, 2),
+                mean_rpd=round(mean_rpd, 2),
+                max_rpd=round(max_rpd, 2),
+                total_time_s=round(total_t, 2),
+            )
+        )
+        print(
+            f"{name:<14} {best:>10.2f} {mean_e:>10.2f} {std_e:>8.2f} "
+            f"{mean_rpd:>9.2f}% {max_rpd:>8.2f}% {total_t:>7.1f}s"
+        )
+        run_detail = "  ".join(f"R{j+1}={e:.1f}" for j, e in enumerate(energies))
+        rpd_detail = "  ".join(f"{r:.1f}%" for r in rpds)
+        print(f"  Energias: {run_detail}")
+        print(f"  RPD:      {rpd_detail}")
+
+    if summary:
+        avg_best = statistics.mean(s["best"] for s in summary)
+        avg_mean = statistics.mean(s["mean"] for s in summary)
+        avg_std = statistics.mean(s["std"] for s in summary)
+        avg_rpd = statistics.mean(s["mean_rpd"] for s in summary)
+        print("-" * 105)
+        print(
+            f"{'Promedio':<14} {avg_best:>10.2f} {avg_mean:>10.2f} {avg_std:>8.2f} "
+            f"{avg_rpd:>9.2f}%"
+        )
+
+    print("\n--- Resumen comparativo (modo -large) ---")
+    for s in summary:
+        print(
+            f"  {s['instance']}: B*={s['best']:.2f} Media={s['mean']:.2f} "
+            f"Std={s['std']:.2f} RPD_media={s['mean_rpd']:.2f}%"
+        )
+
+    return summary
 
 
 def run_extended_small(seed=42):
@@ -1391,17 +1697,9 @@ def run_own_bank(seed=42):
     )
 
 
-def run_large_instances(seed=42):
-    return _run_eh_batch(
-        LARGE_INSTANCES,
-        seed,
-        title="EH-SA/TS - instancias grandes (C25-C150)",
-    )
-
-
 def run_recharge_stations(seed=42):
     print("\n" + "=" * 65)
-    print("Estaciones de recarga - energía y visitas medias (EH-SA/TS)")
+    print("MODO recharge-stations | Análisis por número de estaciones (EH-SA/TS)")
     print("=" * 65)
     print(f"{'Grupo':>6} {'Energía':>12} {'VisEst':>10} {'n':>4}")
     print("-" * 40)
@@ -1424,7 +1722,7 @@ def run_recharge_stations(seed=42):
 
 def run_battery_reserve(seed=42):
     print("\n" + "=" * 65)
-    print("Reserva de batería - energía y visitas medias (EH-SA/TS)")
+    print("MODO battery-reserve | Reserva mínima de batería (EH-SA/TS)")
     print("=" * 65)
     print("Reserva: 0% → 110 kWh usable; 10% → 99 kWh; 20% → 88 kWh.")
     print(f"{'Nivel':>6} {'Usable':>8} {'Energía':>12} {'VisEst':>10}")
@@ -1454,7 +1752,7 @@ def run_battery_reserve(seed=42):
 
 def run_energy_vs_distance(seed=42):
     print("\n" + "=" * 90)
-    print("Energía vs distancia — consumo bajo cada objetivo (EH-SA/TS)")
+    print("MODO energy-vs-distance | Minimización energía vs distancia (EH-SA/TS)")
     print("=" * 90)
     hdr = f"{'Inst':<14} {'E_min':>10} {'E_dist':>10} {'% inc':>10} {'t(s)':>6}"
     print(hdr)
@@ -1482,7 +1780,7 @@ def run_energy_vs_distance(seed=42):
     avg_pct = sum(r["pct_inc"] for r in results) / len(results)
     print("-" * 55)
     print(f"{'Promedio':<14} {'':>10} {'':>10} {avg_pct:>9.2f}%")
-    print("\n%E inc = (E_dist - E_min) / E_min × 100%")
+    print("\n%E inc = (E_dist - E_min) / E_min x 100%")
     return results
 
 
@@ -1532,41 +1830,79 @@ def capture_run_log(log_path: Path):
         log_file.close()
 
 
-def print_usage():
-    print("Uso: python main.py [modo] [--seed N]")
+def normalize_mode(arg: str) -> str:
+    aliases = {
+        "-all": "all",
+        "-small": "small",
+        "-large": "large",
+        "-recharge-stations": "recharge-stations",
+        "-battery-reserve": "battery-reserve",
+        "-energy-vs-distance": "energy-vs-distance",
+    }
+    return aliases.get(arg, arg)
+
+
+def print_execution_modes_summary() -> None:
+    """Resumen de modos (también en docstring del módulo)."""
+    print("Modos de ejecución:")
+    print("  python main.py -small")
+    print(
+        "    EH-SA/TS vs OR-Tools (MIP). Absolute Gap vs ref (Tabla 2, Zhang et al.)."
+    )
+    print("    Log: logs/run_NNN_small.txt")
     print("")
-    print("Modos:")
-    print("  all          Ejecutar todos los benchmarks EH-SA/TS (default)")
-    print("  small        Instancias pequeñas C12R2-C24R2")
-    print("  large        Instancias grandes C25-C150")
-    print("  recharge-stations    Estaciones de recarga")
-    print("  battery-reserve      Reserva de batería")
-    print("  energy-vs-distance   Objetivo energía vs distancia")
-    print("  extended     C10R2, C11R2")
-    print("  bank         Todas las instancias del banco (55)")
-    print("  single NAME  Una instancia (ej: C25R2-1)")
+    print("  python main.py -large")
+    print(
+        "    10 runs EH-SA/TS, semillas distintas. B*, media, desviación estándar, RPD vs B*."
+    )
+    print("    Log: logs/run_NNN_large.txt")
+    print("")
+    print("  python main.py -all")
+    print(
+        "    -small + -large + recharge-stations + battery-reserve + energy-vs-distance"
+    )
+    print("    Log: logs/run_NNN_all.txt")
+    print("")
+    print("  python main.py recharge-stations")
+    print("  python main.py battery-reserve")
+    print("  python main.py energy-vs-distance")
+    print("")
+    print("  python main.py single <nombre>   (ej. C14R2, C25R2-1)")
+
+
+def print_usage():
+    print("Uso: python main.py <modo> [--seed N] [--runs N] [--time-limit N]")
+    print("")
+    print_execution_modes_summary()
     print("")
     print("Opciones:")
-    print("  --seed N     Semilla aleatoria (default: 42)")
+    print("  --seed N         Semilla base EH-SA/TS (default: 42)")
+    print("  --runs N         Corridas en -large (default: 10)")
+    print("  --time-limit N   Límite MIP OR-Tools en -small, segundos (default: 300)")
     print("")
-    print("Logs: cada ejecución guarda logs/run_NNN_<modo>.txt (numeración automática)")
-    print("")
-    print("Ejemplos:")
-    print("  python main.py single C12R2")
-    print("  python main.py all")
-    print("  python main.py small")
+    print("Otros modos: extended (C10-C11), bank (55 instancias)")
 
 
 def _execute_mode(
     mode: str,
     seed: int,
     single_name: str | None,
+    num_runs: int = LARGE_NUM_RUNS_DEFAULT,
+    mip_time_limit_s: float = MIP_TIME_LIMIT_DEFAULT,
 ) -> None:
     print("=" * 70)
     print("EH-SA/TS - Enhanced Hybrid Simulated Annealing / Tabu Search")
     print("EVRP - Electric Vehicle Routing Problem")
     print("=" * 70)
-    print(f"Modo: {mode} | Semilla: {seed}")
+    print(f"Modo: {mode} | Semilla base: {seed}")
+
+    if mode == "all":
+        print("\nPipeline -all:")
+        print("  1) -small          EH-SA/TS vs OR-Tools + Absolute Gap")
+        print("  2) -large          Multi-run EH-SA/TS + RPD vs B*")
+        print("  3) recharge-stations")
+        print("  4) battery-reserve")
+        print("  5) energy-vs-distance")
 
     if mode == "single":
         if single_name is None:
@@ -1583,13 +1919,13 @@ def _execute_mode(
         return
 
     if mode in ("all", "small"):
-        run_small_instances(seed)
-    if mode in ("all", "extended"):
+        run_small_benchmark(seed=seed, mip_time_limit_s=mip_time_limit_s)
+    if mode in ("all", "large"):
+        run_large_multi_run(base_seed=seed, num_runs=num_runs)
+    if mode == "extended":
         run_extended_small(seed)
     if mode == "bank":
         run_own_bank(seed)
-    if mode in ("all", "large"):
-        run_large_instances(seed)
     if mode in ("all", "recharge-stations"):
         run_recharge_stations(seed)
     if mode in ("all", "battery-reserve"):
@@ -1604,6 +1940,8 @@ def main():
     mode = "all"
     seed = 42
     single_name = None
+    num_runs = LARGE_NUM_RUNS_DEFAULT
+    mip_time_limit_s = MIP_TIME_LIMIT_DEFAULT
 
     i = 0
     while i < len(args):
@@ -1613,18 +1951,30 @@ def main():
         if args[i] == "--seed" and i + 1 < len(args):
             seed = int(args[i + 1])
             i += 2
+        elif args[i] == "--runs" and i + 1 < len(args):
+            num_runs = int(args[i + 1])
+            i += 2
+        elif args[i] == "--time-limit" and i + 1 < len(args):
+            mip_time_limit_s = float(args[i + 1])
+            i += 2
         elif args[i] == "single" and i + 1 < len(args):
             mode = "single"
             single_name = args[i + 1]
             i += 2
         else:
-            mode = args[i]
+            mode = normalize_mode(args[i])
             i += 1
 
     slug = log_mode_slug(mode, single_name)
     log_path = next_run_log_path(slug)
     with capture_run_log(log_path):
-        _execute_mode(mode, seed, single_name)
+        _execute_mode(
+            mode,
+            seed,
+            single_name,
+            num_runs=num_runs,
+            mip_time_limit_s=mip_time_limit_s,
+        )
     print(f"\nLog guardado en: {log_path}")
 
 

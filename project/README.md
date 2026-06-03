@@ -281,75 +281,129 @@ Los valores iniciales de los parámetros se establecen en base a estándares de 
 
 ---
 
-## Ejecución
+## Requisitos
 
-Desde `project/`:
+El proyecto usa Python 3. Antes de ejecutar `main.py`, instala las dependencias desde la carpeta `project`:
 
 ```bash
-python main.py [modo] [--seed N]
+cd project
+python -m pip install --user -r requirements.txt
 ```
 
-Las instancias se leen de `instances/small/` y `instances/large/` (archivos `.txt`).
+---
 
-### Modos
+## Ejecución
 
-| Modo          | Qué ejecuta                                                           |
-| ------------- | --------------------------------------------------------------------- |
-| `all`         | Benchmark principal + escenarios extra del paper (ver abajo)          |
-| `small`       | Instancias pequeñas `C12R2` … `C24R2`                                 |
-| `large`       | Instancias grandes `C25` … `C150` (variantes R2/R4/R6/R8 y `-1`/`-2`) |
-| `extended`    | `C10R2`, `C11R2`                                                      |
-| `bank`        | Banco completo: `C10R2` … `C24R2` + 40 grandes (55 instancias)        |
-| `single NAME` | Una sola instancia (ej. `C25R2-1`)                                    |
+### Comandos principales
 
-### Escenarios extras
+```bash
+cd project
+python main.py -small
+python main.py -large --runs 10 --seed 42
+python main.py -all
+python main.py --help
+```
 
-Complementan el análisis con los últimos tres experimentos del artículo (Zhang et al.), para su respectiva comparación. Cada modo tiene un nombre descriptivo:
+Con `-all` se ejecutan en secuencia: `-small` → `-large` → `recharge-stations` → `battery-reserve` → `energy-vs-distance` (mismo protocolo experimental que el paper (Zhang et al.), más los tres análisis de sensibilidad del paper).
 
-| Modo                 | Qué mide                                                                                                                    |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `recharge-stations`  | Instancias con distinto número de estaciones de recarga (R2, R4, R6, R8): energía media (kWh) y visitas medias a estaciones |
-| `battery-reserve`    | Mismo banco grande con reserva de batería 0 %, 10 % y 20 %: energía media y visitas medias                                  |
-| `energy-vs-distance` | Mismo banco con objetivo de minimizar energía vs minimizar distancia: consumo (kWh) y % de incremento energético            |
+### Ejemplo: una instancia concreta
 
-### Logs automáticos
+```bash
+cd project
+python main.py single C25R2-1
+python main.py single C14R2 --seed 123
+```
 
-Cada ejecución guarda la salida de consola en `logs/`, con numeración por modo:
+Salida en consola (y en `logs/run_NNN_single_C25R2-1.txt`): energía EH-SA/TS (kWh), `f_gen`, tiempo, número de rutas y visitas a estaciones. No compara con el solver MIP; sirve para depurar o repetir un caso puntual.
 
-| Ejecución                     | 1.ª vez                         | 2.ª vez                         |
-| ----------------------------- | ------------------------------- | ------------------------------- |
-| `python main.py all`          | `logs/run_001_all.txt`          | `logs/run_002_all.txt`          |
-| `python main.py small`        | `logs/run_001_small.txt`        | `logs/run_002_small.txt`        |
-| `python main.py single C12R2` | `logs/run_001_single_C12R2.txt` | `logs/run_002_single_C12R2.txt` |
+### Modos disponibles
 
-El contador es independiente por modo (`all`, `small`, `battery-reserve`, etc.).
+| Modo                 | Comando                             | Log típico                            |
+| -------------------- | ----------------------------------- | ------------------------------------- |
+| Pequeñas             | `python main.py -small`             | `logs/run_001_small.txt`              |
+| Grandes              | `python main.py -large`             | `logs/run_001_large.txt`              |
+| Todo                 | `python main.py -all`               | `logs/run_001_all.txt`                |
+| Estaciones           | `python main.py recharge-stations`  | `logs/run_001_recharge-stations.txt`  |
+| Reserva batería      | `python main.py battery-reserve`    | `logs/run_001_battery-reserve.txt`    |
+| Energía vs distancia | `python main.py energy-vs-distance` | `logs/run_001_energy-vs-distance.txt` |
+| Una instancia        | `python main.py single <nombre>`    | `logs/run_001_single_<nombre>.txt`    |
+
+También aceptan forma sin guión (`small`, `large`, `all`) o con guión (`-recharge-stations`, etc.).
+
+Modos auxiliares (no entran en `-all`): `extended` (C10R2, C11R2) y `bank` (55 instancias, solo EH-SA/TS).
 
 ### Opciones
 
-- `--seed N` - semilla aleatoria (por defecto: `42`)
-- `--help` / `-h` - muestra la ayuda en consola (no genera log)
+| Opción           | Efecto                                                            | Default |
+| ---------------- | ----------------------------------------------------------------- | ------- |
+| `--seed N`       | Semilla base de EH-SA/TS; en `-large` deriva semillas por corrida | `42`    |
+| `--runs N`       | Número de corridas independientes en `-large`                     | `10`    |
+| `--time-limit N` | Límite en segundos del MIP OR-Tools por instancia en `-small`     | `300`   |
+| `--help` / `-h`  | Resumen de modos en consola (no crea log)                         | —       |
 
-Los resultados quedan en `logs/run_NNN_<modo>.txt` (salida completa de consola, numerada por modo).
+En `-large`, las semillas son `base_seed + i × 9973` para `i = 0 … N-1` (reproducibilidad entre corridas).
 
-### Ejemplos
+---
 
-```bash
-# Todo el benchmark
-python main.py all
+## Escenarios de prueba y métricas
 
-# Una instancia
-python main.py single C12R2
+Las métricas siguen la notación de Zhang et al. (2018). En este proyecto, el solver de referencia en instancias pequeñas es **OR-Tools (MIP)** en lugar de CPLEX; en instancias grandes el paper compara varios métodos (p. ej. AC y ALNS), pero aquí solo se ejecuta **EH-SA/TS** varias veces, de modo que el RPD se calcula **entre runs del mismo algoritmo** (variabilidad y robustez), no frente a un segundo método.
 
-# Solo instancias pequeñas
-python main.py small
+### Instancias pequeñas (`-small`)
 
-# Benchmark completo con otra semilla
-python main.py all --seed 123
+**Qué se ejecuta:** las 13 instancias `C12R2` … `C24R2`. Por cada una se corre EH-SA/TS y, si OR-Tools está instalado vía `requirements.txt`, un modelo MIP que actúa como referencia de optimalidad.
 
-# Escenarios extra del paper
-python main.py recharge-stations
-python main.py battery-reserve
-python main.py energy-vs-distance
-```
+**Qué debe aparecer en el log** (`logs/run_NNN_small.txt`):
 
-En modo `single`, la salida incluye energía (kWh), `f_gen`, tiempo, número de rutas y visitas a estaciones.
+- Energía del MIP (kWh), tiempo y estado (óptimo / factible / timeout).
+- Energía de EH-SA/TS (kWh) y tiempo.
+- **Absolute Gap (EH)** respecto al MIP, al estilo Tabla 2 del paper:
+
+$$\text{Gap} = \frac{E_{\text{EH}} - E_{\text{ref}}}{E_{\text{ref}}} \times 100\%$$
+
+donde \(E\_{\text{ref}}\) es la energía del MIP. Valores positivos indican que EH-SA/TS consume más energía que la referencia.
+
+- Tabla resumen por instancia y promedios al final (`--- Resumen comparativo (modo -small) ---`).
+
+Si OR-Tools no está instalado (`python -m pip install --user -r requirements.txt`), EH-SA/TS igual corre; la columna Gap muestra `---` y el resumen indica la instalación faltante.
+
+### Instancias grandes (`-large`)
+
+**Qué se ejecuta:** el banco grande `C25` … `C150` (variantes R2/R4/R6/R8 y sufijos `-1`/`-2` cuando aplica). Por defecto **10 corridas** de EH-SA/TS con **semillas distintas** por instancia.
+
+**Qué debe aparecer en el log** (`logs/run_NNN_large.txt`):
+
+| Métrica                 | Definición (solo runs EH-SA/TS)                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **B\***                 | Mejor energía entre las N corridas: \(\min_i E_i\)                                                                                                      |
+| **Media**               | Promedio de energía (kWh) sobre las N corridas                                                                                                          |
+| **Desviación estándar** | Dispersión de energía entre corridas                                                                                                                    |
+| **RPD por corrida**     | \(\text{RPD}\_i = (E*i - B^*) / B^\_ \times 100\%\) (misma fórmula relativa que en el paper; aquí la referencia es la mejor corrida propia, no AC/ALNS) |
+| **RPD media / RPD máx** | Promedio y máximo de los RPD por instancia                                                                                                              |
+| Detalle                 | Energías `R1=… R2=…` y RPD `%` por corrida                                                                                                              |
+
+### Pipeline completo (`-all`)
+
+Un solo log (`run_NNN_all.txt`) con los cinco bloques anteriores en orden, útil para reproducir el experimento de una vez.
+
+### `recharge-stations`
+
+EH-SA/TS sobre todas las instancias grandes, agrupadas por número de estaciones **R2, R4, R6, R8**.
+
+**Métricas:** energía media (kWh) y visitas medias a estaciones por grupo, con conteo `n` de instancias por grupo.
+
+### `battery-reserve`
+
+Mismo banco grande con tres niveles de **reserva mínima de batería**: 0 %, 10 % y 20 % (capacidad usable 110 / 99 / 88 kWh).
+
+**Métricas:** energía media y visitas medias a estaciones por nivel de reserva.
+
+### `energy-vs-distance`
+
+Por instancia: minimización de **energía** (EH-SA/TS estándar) frente a una variante que prioriza **distancia** y luego evalúa energía.
+
+**Métricas:** \(E*{\min}\), \(E*{\text{dist}}\) y **% de incremento** de energía al usar la solución orientada a distancia:
+
+$$\% = \frac{E_{\text{dist}} - E_{\min}}{E_{\min}} \times 100\%$$
+
+---
