@@ -286,7 +286,7 @@ Los valores iniciales de los parámetros se establecen en base a estándares de 
 Desde `project/`:
 
 ```bash
-python main.py [modo] [--seed N] [--save]
+python main.py [modo] [--seed N]
 ```
 
 Las instancias se leen de `instances/small/` y `instances/large/` (archivos `.txt`).
@@ -312,27 +312,43 @@ Complementan el análisis con los últimos tres experimentos del artículo (Zhan
 | `battery-reserve`    | Mismo banco grande con reserva de batería 0 %, 10 % y 20 %: energía media y visitas medias                                  |
 | `energy-vs-distance` | Mismo banco con objetivo de minimizar energía vs minimizar distancia: consumo (kWh) y % de incremento energético            |
 
+### Logs automáticos
+
+Cada ejecución guarda la salida de consola en `logs/`, con numeración por modo:
+
+| Ejecución                     | 1.ª vez                         | 2.ª vez                         |
+| ----------------------------- | ------------------------------- | ------------------------------- |
+| `python main.py all`          | `logs/run_001_all.txt`          | `logs/run_002_all.txt`          |
+| `python main.py small`        | `logs/run_001_small.txt`        | `logs/run_002_small.txt`        |
+| `python main.py single C12R2` | `logs/run_001_single_C12R2.txt` | `logs/run_002_single_C12R2.txt` |
+
+El contador es independiente por modo (`all`, `small`, `battery-reserve`, etc.).
+
 ### Opciones
 
 - `--seed N` - semilla aleatoria (por defecto: `42`)
-- `--save` - guarda los resultados en `benchmarks.txt`
-- `--help` / `-h` - muestra la ayuda en consola
+- `--help` / `-h` - muestra la ayuda en consola (no genera log)
+
+Los resultados quedan en `logs/run_NNN_<modo>.txt` (salida completa de consola, numerada por modo).
 
 ### Ejemplos
 
 ```bash
+# Todo el benchmark
+python main.py all
+
 # Una instancia
 python main.py single C12R2
 
-# Solo instancias pequeñas y guardar salida
-python main.py small --save
+# Solo instancias pequeñas
+python main.py small
 
 # Benchmark completo con otra semilla
-python main.py all --seed 123 --save
+python main.py all --seed 123
 
-# Solo un escenario extra del paper
+# Escenarios extra del paper
 python main.py recharge-stations
-python main.py battery-reserve --save
+python main.py battery-reserve
 python main.py energy-vs-distance
 ```
 

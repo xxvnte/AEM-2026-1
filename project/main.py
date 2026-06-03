@@ -7,11 +7,13 @@ import random
 import re
 import sys
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 
 INSTANCES_DIR = Path(__file__).parent / "instances"
+LOGS_DIR = Path(__file__).parent / "logs"
 
 ALPHA_ARC = 0.0981
 BETA_VEH = 2.11
@@ -1484,65 +1486,54 @@ def run_energy_vs_distance(seed=42):
     return results
 
 
-def save_results(
-    small,
-    large,
-    recharge_stations,
-    battery_reserve,
-    energy_vs_distance,
-    path="benchmarks.txt",
-    extended=None,
-    bank=None,
-):
-    lines = [
-        "RESULTADOS EH-SA/TS",
-        "",
-    ]
+class _TeeWriter:
+    def __init__(self, *streams):
+        self._streams = streams
 
-    def _batch_section(title: str, rows: list[dict]) -> None:
-        if not rows:
-            return
-        lines.append(title)
-        lines.append("-" * 60)
-        for r in rows:
-            lines.append(
-                f"{r['instance']}: E={r['energy']} kWh rutas={r['routes']} "
-                f"vis_est={r['station_visits']} t={r['time_s']}s"
-            )
-        lines.append("")
+    def write(self, data):
+        for stream in self._streams:
+            stream.write(data)
+            stream.flush()
 
-    _batch_section("INSTANCIAS PEQUEÑAS", small)
-    _batch_section("INSTANCIAS GRANDES", large)
-    if recharge_stations:
-        lines.append("ESTACIONES DE RECARGA (Tabla 4 paper)")
-        for r in recharge_stations:
-            lines.append(f"{r['group']}: E={r['energy']} vis={r['visits']} n={r['n']}")
-        lines.append("")
-    if battery_reserve:
-        lines.append("RESERVA DE BATERÍA (Tabla 5 paper)")
-        for r in battery_reserve:
-            lines.append(
-                f"{r['threshold']}: E={r['energy']} vis={r['visits']} usable={r['usable_kwh']} kWh"
-            )
-        lines.append("")
-    if energy_vs_distance:
-        lines.append("ENERGÍA vs DISTANCIA (Tabla 6 paper)")
-        for r in energy_vs_distance:
-            lines.append(
-                f"{r['instance']}: E_min={r['energy_min']} E_dist={r['energy_dist']} "
-                f"inc={r['pct_inc']}%"
-            )
-        lines.append("")
-    _batch_section("EXTENDIDAS", extended or [])
-    _batch_section("BANCO COMPLETO", bank or [])
+    def flush(self):
+        for stream in self._streams:
+            stream.flush()
 
-    with open(path, "w", encoding="utf-8") as f:
-        f.write("\n".join(lines))
-    print(f"\nResultados guardados en: {path}")
+
+def log_mode_slug(mode: str, single_name: str | None = None) -> str:
+    if mode == "single" and single_name:
+        safe = re.sub(r"[^\w\-]", "_", single_name)
+        return f"single_{safe}"
+    return mode
+
+
+def next_run_log_path(slug: str) -> Path:
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    pattern = re.compile(rf"^run_(\d{{3}})_{re.escape(slug)}\.txt$")
+    max_run = 0
+    for path in LOGS_DIR.iterdir():
+        match = pattern.match(path.name)
+        if match:
+            max_run = max(max_run, int(match.group(1)))
+    return LOGS_DIR / f"run_{max_run + 1:03d}_{slug}.txt"
+
+
+@contextmanager
+def capture_run_log(log_path: Path):
+    log_file = open(log_path, "w", encoding="utf-8")
+    stdout_prev, stderr_prev = sys.stdout, sys.stderr
+    sys.stdout = _TeeWriter(stdout_prev, log_file)
+    sys.stderr = _TeeWriter(stderr_prev, log_file)
+    try:
+        yield
+    finally:
+        sys.stdout = stdout_prev
+        sys.stderr = stderr_prev
+        log_file.close()
 
 
 def print_usage():
-    print("Uso: python main.py [modo] [--seed N] [--save]")
+    print("Uso: python main.py [modo] [--seed N]")
     print("")
     print("Modos:")
     print("  all          Ejecutar todos los benchmarks EH-SA/TS (default)")
@@ -1557,39 +1548,20 @@ def print_usage():
     print("")
     print("Opciones:")
     print("  --seed N     Semilla aleatoria (default: 42)")
-    print("  --save       Guardar benchmarks.txt con todos los resultados")
+    print("")
+    print("Logs: cada ejecución guarda logs/run_NNN_<modo>.txt (numeración automática)")
     print("")
     print("Ejemplos:")
     print("  python main.py single C12R2")
-    print("  python main.py small --save")
+    print("  python main.py all")
+    print("  python main.py small")
 
 
-def main():
-    args = sys.argv[1:]
-    mode = "all"
-    seed = 42
-    save = False
-    single_name = None
-
-    i = 0
-    while i < len(args):
-        if args[i] in ("--help", "-h"):
-            print_usage()
-            return
-        if args[i] == "--seed" and i + 1 < len(args):
-            seed = int(args[i + 1])
-            i += 2
-        elif args[i] == "--save":
-            save = True
-            i += 1
-        elif args[i] == "single" and i + 1 < len(args):
-            mode = "single"
-            single_name = args[i + 1]
-            i += 2
-        else:
-            mode = args[i]
-            i += 1
-
+def _execute_mode(
+    mode: str,
+    seed: int,
+    single_name: str | None,
+) -> None:
     print("=" * 70)
     print("EH-SA/TS - Enhanced Hybrid Simulated Annealing / Tabu Search")
     print("EVRP - Electric Vehicle Routing Problem")
@@ -1607,49 +1579,53 @@ def main():
         print(f"Tiempo:           {row['time_s']:.2f}s")
         print(f"Rutas:            {row['routes']}")
         print(f"Visitas estación: {row['station_visits']}")
+        print("\n Experimento completado :D")
         return
 
-    small, large, recharge_stations, battery_reserve, energy_vs_distance = (
-        [],
-        [],
-        [],
-        [],
-        [],
-    )
-    extended, bank = [], []
     if mode in ("all", "small"):
-        small = run_small_instances(seed)
+        run_small_instances(seed)
     if mode in ("all", "extended"):
-        extended = run_extended_small(seed)
+        run_extended_small(seed)
     if mode == "bank":
-        bank = run_own_bank(seed)
+        run_own_bank(seed)
     if mode in ("all", "large"):
-        large = run_large_instances(seed)
+        run_large_instances(seed)
     if mode in ("all", "recharge-stations"):
-        recharge_stations = run_recharge_stations(seed)
+        run_recharge_stations(seed)
     if mode in ("all", "battery-reserve"):
-        battery_reserve = run_battery_reserve(seed)
+        run_battery_reserve(seed)
     if mode in ("all", "energy-vs-distance"):
-        energy_vs_distance = run_energy_vs_distance(seed)
-    if save and (
-        small
-        or large
-        or recharge_stations
-        or battery_reserve
-        or energy_vs_distance
-        or extended
-        or bank
-    ):
-        save_results(
-            small,
-            large,
-            recharge_stations,
-            battery_reserve,
-            energy_vs_distance,
-            extended=extended,
-            bank=bank,
-        )
+        run_energy_vs_distance(seed)
     print("\n Experimento completado :D")
+
+
+def main():
+    args = sys.argv[1:]
+    mode = "all"
+    seed = 42
+    single_name = None
+
+    i = 0
+    while i < len(args):
+        if args[i] in ("--help", "-h"):
+            print_usage()
+            return
+        if args[i] == "--seed" and i + 1 < len(args):
+            seed = int(args[i + 1])
+            i += 2
+        elif args[i] == "single" and i + 1 < len(args):
+            mode = "single"
+            single_name = args[i + 1]
+            i += 2
+        else:
+            mode = args[i]
+            i += 1
+
+    slug = log_mode_slug(mode, single_name)
+    log_path = next_run_log_path(slug)
+    with capture_run_log(log_path):
+        _execute_mode(mode, seed, single_name)
+    print(f"\nLog guardado en: {log_path}")
 
 
 if __name__ == "__main__":
