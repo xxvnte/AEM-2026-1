@@ -41,6 +41,7 @@ T_MIN = 0.01
 K_TABU = 12
 GAMMA_CAP = 200.0
 GAMMA_BATT = 100.0
+GAMMA_MISS = 5000.0
 UMBRAL = 100
 
 MIP_TIME_LIMIT_DEFAULT = 300.0
@@ -616,7 +617,7 @@ def log_infeasible_candidate(
     label = "[MEJOR CANDIDATO INFACTIBLE]"
     inst_part = f" {instance}" if instance else ""
     reasons = ", ".join(_infeasibility_reasons(report))
-    print(f"{indent}{label}{inst_part} (NO válido para Gap / comparación MIP)")
+    print(f"{indent}{label}{inst_part} (NO válido para Gap / comparación OR-Tools)")
     print(
         f"{indent}  f_gen={fgen:.2f} | energía simulada={report['energy_kwh']:.2f} kWh"
     )
@@ -946,6 +947,57 @@ def _segment_need_end_battery(
     )
 
 
+def _two_hop_via_charge_nodes(
+    current: int,
+    next_cust: int,
+    load: float,
+    batt: float,
+    vertices: dict[int, Vertex],
+    arcs: dict,
+    charge_nodes: list[int],
+    reserve_kwh: float,
+    min_end_batt: float = 0.0,
+) -> tuple[list[int], float] | None:
+    best_seg: list[int] | None = None
+    best_batt = 0.0
+    best_cost = 1e18
+    for st in charge_nodes:
+        if st == current:
+            continue
+        e1, p1, b1 = min_energy_path(
+            current,
+            st,
+            load,
+            batt,
+            vertices,
+            arcs,
+            charge_nodes,
+            reserve_kwh=reserve_kwh,
+        )
+        if e1 >= 1e17:
+            continue
+        e2, p2, b2 = min_energy_path(
+            st,
+            next_cust,
+            load,
+            b1,
+            vertices,
+            arcs,
+            charge_nodes,
+            min_end_batt=min_end_batt,
+            reserve_kwh=reserve_kwh,
+        )
+        if e2 >= 1e17:
+            continue
+        if e1 + e2 < best_cost:
+            best_cost = e1 + e2
+            best_seg = p1[1:] + p2[1:]
+            best_batt = b2
+    if best_seg is None:
+        return None
+    return best_seg, best_batt
+
+
 def greedy_station_insert_route(
     client_seq: list[int],
     vertices: dict[int, Vertex],
@@ -959,9 +1011,33 @@ def greedy_station_insert_route(
         return list(client_seq)
     reserve_kwh = battery_reserve_kwh(reserve_pct)
     charge_nodes = charge_nodes_for_segment(client_seq[-1], station_idxs, depot_idxs)
+    all_charge_nodes = list(dict.fromkeys(station_idxs + depot_idxs))
     full = [client_seq[0]]
     batt = BATTERY_CAPACITY_KWH
     cust_idx = 0
+
+    def advance_to_next(next_cust: int, seg_path: list[int], end_batt: float) -> bool:
+        nonlocal full, batt, cust_idx
+        full.extend(seg_path[1:])
+        batt = end_batt
+        if full[-1] != next_cust:
+            return False
+        cust_idx += 1
+        return True
+
+    def finish_via_depot_suffix() -> list[int]:
+        depot_start = depot_idxs[0]
+        suffix_seq = [depot_start] + client_seq[cust_idx + 1 :]
+        tail = greedy_station_insert_route(
+            suffix_seq,
+            vertices,
+            arcs,
+            station_idxs,
+            depot_idxs,
+            reserve_pct,
+        )
+        full.extend(tail[1:])
+        return full
 
     while cust_idx < len(client_seq) - 1:
         current = full[-1]
@@ -990,100 +1066,101 @@ def greedy_station_insert_route(
         )
         if segment_options:
             seg_e, seg_path, end_batt = min(segment_options, key=lambda item: item[0])
-            full.extend(seg_path[1:])
-            batt = end_batt
-            cust_idx += 1
-            continue
+            if advance_to_next(next_cust, seg_path, end_batt):
+                continue
 
-        best_seg: list[int] | None = None
-        best_batt = 0.0
-        best_cost = 1e18
-        for st in charge_nodes:
-            if st == current:
+        via_charge = _two_hop_via_charge_nodes(
+            current,
+            next_cust,
+            load,
+            batt,
+            vertices,
+            arcs,
+            seg_nodes,
+            reserve_kwh,
+            min_end_batt=need_end,
+        )
+        if via_charge is not None:
+            seg_path = [current] + via_charge[0]
+            if advance_to_next(next_cust, seg_path, via_charge[1]):
                 continue
-            e1, p1, b1 = min_energy_path(
-                current,
-                st,
-                load,
-                batt,
-                vertices,
-                arcs,
-                seg_nodes,
-                reserve_kwh=reserve_kwh,
-            )
-            if e1 >= 1e17:
+
+        detour = _charge_detour_to(
+            current,
+            next_cust,
+            load,
+            batt,
+            vertices,
+            arcs,
+            seg_nodes,
+            reserve_kwh,
+        )
+        if detour is not None:
+            _, path, end_batt = detour
+            if advance_to_next(next_cust, path, end_batt):
                 continue
-            e2, p2, b2 = min_energy_path(
-                st,
+
+        depot_start = depot_idxs[0]
+        return_e, return_path, return_batt = min_energy_path(
+            current,
+            depot_start,
+            load,
+            batt,
+            vertices,
+            arcs,
+            seg_nodes,
+            reserve_kwh=reserve_kwh,
+        )
+        if return_e < 1e17:
+            forward_e, forward_path, forward_batt = min_energy_path(
+                depot_start,
                 next_cust,
                 load,
-                b1,
+                return_batt,
                 vertices,
                 arcs,
                 seg_nodes,
+                min_end_batt=need_end,
                 reserve_kwh=reserve_kwh,
             )
-            if e2 >= 1e17:
-                continue
-            if e1 + e2 < best_cost:
-                best_cost = e1 + e2
-                best_seg = p1[1:] + p2[1:]
-                best_batt = b2
+            if forward_e < 1e17:
+                full.extend(return_path[1:])
+                if advance_to_next(next_cust, forward_path, forward_batt):
+                    continue
 
-        if best_seg is not None:
-            full.extend(best_seg)
-            batt = best_batt
-            cust_idx += 1
-        else:
-            detour = _charge_detour_to(
-                current,
-                next_cust,
-                load,
-                batt,
-                vertices,
-                arcs,
-                seg_nodes,
-                reserve_kwh,
-            )
-            if detour is not None:
-                _, path, batt = detour
-                full.extend(path[1:])
-                cust_idx += 1
-            else:
-                depot_start = depot_idxs[0]
-                return_e, return_path, return_batt = min_energy_path(
-                    current,
-                    depot_start,
-                    load,
-                    batt,
-                    vertices,
-                    arcs,
-                    seg_nodes,
-                    reserve_kwh=reserve_kwh,
-                )
-                forward_e, forward_path, forward_batt = (
-                    (0.0, [depot_start], BATTERY_CAPACITY_KWH)
-                    if return_e >= 1e17
-                    else min_energy_path(
-                        depot_start,
-                        next_cust,
-                        load,
-                        return_batt,
-                        vertices,
-                        arcs,
-                        seg_nodes,
-                        min_end_batt=need_end,
-                        reserve_kwh=reserve_kwh,
-                    )
-                )
-                if forward_e < 1e17:
-                    if return_e < 1e17:
-                        full.extend(return_path[1:])
-                    full.extend(forward_path[1:])
-                    batt = forward_batt
-                    cust_idx += 1
-                else:
-                    return list(client_seq)
+        via_all = _two_hop_via_charge_nodes(
+            current,
+            next_cust,
+            load,
+            batt,
+            vertices,
+            arcs,
+            all_charge_nodes,
+            reserve_kwh,
+            min_end_batt=need_end,
+        )
+        if via_all is not None:
+            seg_path = [current] + via_all[0]
+            if advance_to_next(next_cust, seg_path, via_all[1]):
+                continue
+
+        relaxed = segment_path_options(
+            current,
+            next_cust,
+            load,
+            batt,
+            vertices,
+            arcs,
+            seg_nodes,
+            min_end_batt=0.0,
+            reserve_kwh=reserve_kwh,
+        )
+        if relaxed:
+            seg_e, seg_path, end_batt = min(relaxed, key=lambda item: item[0])
+            if advance_to_next(next_cust, seg_path, end_batt):
+                continue
+
+        return finish_via_depot_suffix()
     if full[-1] != client_seq[-1]:
         tail = _charge_detour_to(
             full[-1],
@@ -1184,13 +1261,26 @@ def f_gen_route(
     return e + GAMMA_CAP * cv + GAMMA_BATT * bv
 
 
+def missing_customers_penalty(
+    routes: list[list[int]], vertices: dict[int, Vertex]
+) -> float:
+    customer_ids = {v.idx for v in vertices.values() if v.is_customer}
+    visited: list[int] = []
+    for route in routes:
+        visited.extend(i for i in route if vertices[i].is_customer)
+    missing = len(customer_ids - set(visited))
+    duplicates = max(0, len(visited) - len(set(visited)))
+    return GAMMA_MISS * (missing + duplicates)
+
+
 def f_gen_solution(
     routes: list[list[int]],
     vertices: dict[int, Vertex],
     arcs: dict,
     reserve_pct: float = 0.0,
 ) -> float:
-    return sum(f_gen_route(r, vertices, arcs, reserve_pct) for r in routes)
+    energy_penalties = sum(f_gen_route(r, vertices, arcs, reserve_pct) for r in routes)
+    return energy_penalties + missing_customers_penalty(routes, vertices)
 
 
 def exact_energy_solution(
@@ -1942,14 +2032,16 @@ def run_small_benchmark(
     """Instancias pequeñas: EH-SA/TS vs OR-Tools"""
     print("\n" + "=" * 100)
     print("MODO -small | INSTANCIAS PEQUEÑAS (C12R2-C24R2)")
-    print("Comparación EH-SA/TS vs solver exacto (MIP OR-Tools)")
+    print("Comparación EH-SA/TS vs solver OR-Tools (modelo MIP)")
     print("=" * 100)
     print("Métricas:")
-    print("  ref     = energía MIP OR-Tools (límite de optimalidad / factible)")
+    print("  ref     = energía OR-Tools (límite de optimalidad / factible)")
     print("  Absolute Gap (EH) = (E_EH - ref) / ref x 100%")
-    print(f"  Límite MIP: {mip_time_limit_s:.0f} s por instancia | Semilla EH: {seed}")
+    print(
+        f"  Límite OR-Tools: {mip_time_limit_s:.0f} s por instancia | Semilla EH: {seed}"
+    )
     hdr = (
-        f"{'Inst':<10} {'OR-Tools':>10} {'t_MIP':>7} {'Estado':>18} "
+        f"{'Inst':<10} {'OR-Tools':>10} {'t_OT':>7} {'Estado':>18} "
         f"{'EH-SA/TS':>10} {'t_EH':>6} {'Gap %':>8}"
     )
     print(hdr)
@@ -2016,7 +2108,7 @@ def run_small_benchmark(
             f"{'Promedio':<10} {avg_mip:>10.2f} {'':>7} {'':>18} "
             f"{avg_eh:>10.2f} {'':>6} {avg_gap:>7.2f}%"
         )
-        print(f"MIP resueltos: {len(solved)}/{len(results)}")
+        print(f"OR-Tools resueltos: {len(solved)}/{len(results)}")
         print(f"EH factibles: {len(feasible_eh)}/{len(results)}")
     elif not ORTOOLS_AVAILABLE:
         print("\nInstale OR-Tools: pip install ortools")
@@ -2029,7 +2121,9 @@ def run_small_benchmark(
                 f"EH-SA/TS={r['eh_energy']:.2f} kWh, Gap={r['gap_pct']:.2f}%"
             )
         elif r["eh_feasible"]:
-            print(f"  {r['instance']}: EH-SA/TS={r['eh_energy']:.2f} kWh (sin ref MIP)")
+            print(
+                f"  {r['instance']}: EH-SA/TS={r['eh_energy']:.2f} kWh (sin ref OR-Tools)"
+            )
         else:
             print(
                 f"  {r['instance']}: EH-SA/TS=INFACTIBLE "
@@ -2288,9 +2382,7 @@ def print_execution_modes_summary() -> None:
     """Resumen de modos (también en docstring del módulo)."""
     print("Modos de ejecución:")
     print("  python main.py -small")
-    print(
-        "    EH-SA/TS vs OR-Tools (MIP). Absolute Gap vs ref (Tabla 2, Zhang et al.)."
-    )
+    print("    EH-SA/TS vs OR-Tools. Absolute Gap vs ref (Tabla 2, Zhang et al.).")
     print("    Log: logs/run_NNN_small.txt")
     print("")
     print("  python main.py -large")
@@ -2320,7 +2412,7 @@ def print_usage():
     print("Opciones:")
     print("  --seed N         Semilla base EH-SA/TS (default: 42)")
     print("  --runs N         Corridas en -large (default: 10)")
-    print("  --time-limit N   Límite MIP OR-Tools en -small, segundos (default: 300)")
+    print("  --time-limit N   Límite de OR-Tools en -small, segundos (default: 300)")
     print("")
     print("Otros modos: extended (C10-C11), bank (55 instancias)")
 

@@ -14,38 +14,26 @@ Métricas:
   Límite MIP: 300 s por instancia | Semilla EH: 42
 Inst         OR-Tools   t_MIP             Estado   EH-SA/TS   t_EH    Gap %
 ----------------------------------------------------------------------------------------------------
-  [MEJOR CANDIDATO INFACTIBLE] C12R2 (NO válido para Gap / comparación MIP)
-    f_gen=370.21 | energía simulada=370.21 kWh
-    clientes=11/12 | faltantes=[3] | duplicados=0
-    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg
-    rutas=1 | visitas_estaciones=0
-    causas: clientes faltantes (1)
-C12R2          226.42    9.1s             OPTIMO INFACTIBLE   0.6s     ---%
-C13R2          263.92  300.0s FACTIBLE (lim. tiempo)     752.72   1.0s  185.21%
-C14R2          205.55   43.0s             OPTIMO     520.89   1.0s  153.42%
-C15R2          225.05   38.7s             OPTIMO     519.67   1.2s  130.92%
-C16R2          271.03   32.3s             OPTIMO     734.95   1.2s  171.17%
-C17R2          173.95    6.8s             OPTIMO     612.25   1.4s  251.98%
-C18R2          302.76  300.5s FACTIBLE (lim. tiempo)    1005.97   1.6s  232.27%
-C19R2          219.93   13.2s             OPTIMO     703.62   1.8s  219.93%
-C20R2          287.95  301.4s FACTIBLE (lim. tiempo)     862.49   1.9s  199.52%
-C21R2          291.29  301.1s FACTIBLE (lim. tiempo)     892.83   2.2s  206.51%
-  [MEJOR CANDIDATO INFACTIBLE] C22R2 (NO válido para Gap / comparación MIP)
-    f_gen=741.17 | energía simulada=741.17 kWh
-    clientes=20/22 | faltantes=[9, 15] | duplicados=0
-    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg
-    rutas=1 | visitas_estaciones=5
-    causas: clientes faltantes (2)
-C22R2          262.00  259.4s             OPTIMO INFACTIBLE   2.1s     ---%
-C23R2          254.73   29.5s             OPTIMO     923.32   2.9s  262.47%
-C24R2          274.39  302.0s FACTIBLE (lim. tiempo)     838.86   2.8s  205.72%
+C12R2          226.42    8.8s             OPTIMO     433.88   0.7s   91.62%
+C13R2          263.92  300.6s FACTIBLE (lim. tiempo)     752.72   1.0s  185.21%
+C14R2          205.55   43.5s             OPTIMO     520.89   1.0s  153.42%
+C15R2          225.05   39.2s             OPTIMO     519.67   1.1s  130.92%
+C16R2          271.03   32.6s             OPTIMO     734.95   1.2s  171.17%
+C17R2          173.95    6.9s             OPTIMO     612.25   1.4s  251.98%
+C18R2          302.76  301.3s FACTIBLE (lim. tiempo)    1005.97   1.7s  232.27%
+C19R2          219.93   14.5s             OPTIMO     703.62   1.9s  219.93%
+C20R2          287.95  301.1s FACTIBLE (lim. tiempo)     862.49   2.0s  199.52%
+C21R2          295.65  301.1s FACTIBLE (lim. tiempo)     892.83   2.2s  201.99%
+C22R2          262.00  278.2s             OPTIMO     829.70   2.4s  216.68%
+C23R2          254.73   32.7s             OPTIMO     923.32   2.9s  262.47%
+C24R2          277.45  301.7s FACTIBLE (lim. tiempo)     838.86   2.9s  202.35%
 ----------------------------------------------------------------------------------------------------
-Promedio       250.69                                760.69         201.74%
+Promedio       251.26                                740.86         193.81%
 MIP resueltos: 13/13
-EH factibles: 11/13
+EH factibles: 13/13
 
 --- Resumen comparativo (modo -small) ---
-  C12R2: EH-SA/TS=INFACTIBLE (clientes faltantes=1, viol_bat=0.00 kWh)
+  C12R2: OR-Tools=226.42 kWh, EH-SA/TS=433.88 kWh, Gap=91.62%
   C13R2: OR-Tools=263.92 kWh, EH-SA/TS=752.72 kWh, Gap=185.21%
   C14R2: OR-Tools=205.55 kWh, EH-SA/TS=520.89 kWh, Gap=153.42%
   C15R2: OR-Tools=225.05 kWh, EH-SA/TS=519.67 kWh, Gap=130.92%
@@ -54,9 +42,9 @@ EH factibles: 11/13
   C18R2: OR-Tools=302.76 kWh, EH-SA/TS=1005.97 kWh, Gap=232.27%
   C19R2: OR-Tools=219.93 kWh, EH-SA/TS=703.62 kWh, Gap=219.93%
   C20R2: OR-Tools=287.95 kWh, EH-SA/TS=862.49 kWh, Gap=199.52%
-  C21R2: OR-Tools=291.29 kWh, EH-SA/TS=892.83 kWh, Gap=206.51%
-  C22R2: EH-SA/TS=INFACTIBLE (clientes faltantes=2, viol_bat=0.00 kWh)
+  C21R2: OR-Tools=295.65 kWh, EH-SA/TS=892.83 kWh, Gap=201.99%
+  C22R2: OR-Tools=262.00 kWh, EH-SA/TS=829.70 kWh, Gap=216.68%
   C23R2: OR-Tools=254.73 kWh, EH-SA/TS=923.32 kWh, Gap=262.47%
-  C24R2: OR-Tools=274.39 kWh, EH-SA/TS=838.86 kWh, Gap=205.72%
+  C24R2: OR-Tools=277.45 kWh, EH-SA/TS=838.86 kWh, Gap=202.35%
 
  Experimento completado :D
