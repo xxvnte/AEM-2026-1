@@ -507,7 +507,198 @@ def evaluate_route_exact(
     return total_e, batt_viol
 
 
-def min_energy_path(
+def evaluate_route_strict(
+    seq: list[int],
+    vertices: dict[int, Vertex],
+    arcs: dict,
+    reserve_pct: float = 0.0,
+) -> tuple[float, float]:
+    if len(seq) < 2:
+        return 0.0, 0.0
+    reserve_kwh = battery_reserve_kwh(reserve_pct)
+    load_kg = route_total_load_kg(seq, vertices)
+    batt = BATTERY_CAPACITY_KWH
+    total_e = 0.0
+    batt_viol = 0.0
+    for step in range(len(seq) - 1):
+        i, j = seq[step], seq[step + 1]
+        if vertices[i].is_customer:
+            load_kg -= vertices[i].demand_tons * 1000.0
+        e = arc_energy_kwh(arcs, i, j, max(0.0, load_kg))
+        if batt + 1e-9 < e:
+            batt_viol += e - batt
+            total_e += e
+            batt = 0.0
+        else:
+            total_e += e
+            batt -= e
+        if is_charge_node(vertices[j]):
+            batt = BATTERY_CAPACITY_KWH
+        elif batt + 1e-9 < reserve_kwh:
+            batt_viol += reserve_kwh - batt
+            batt = reserve_kwh
+    return total_e, batt_viol
+
+
+def validate_solution(
+    routes: list[list[int]],
+    vertices: dict[int, Vertex],
+    arcs: dict,
+    reserve_pct: float = 0.0,
+) -> dict:
+    customer_ids = {v.idx for v in vertices.values() if v.is_customer}
+    visited: list[int] = []
+    battery_violation = 0.0
+    capacity_violation = 0.0
+    energy = 0.0
+    for route in routes:
+        visited.extend(i for i in route if vertices[i].is_customer)
+        route_energy, route_battery_violation = evaluate_route_strict(
+            route, vertices, arcs, reserve_pct
+        )
+        energy += route_energy
+        battery_violation += route_battery_violation
+        capacity_violation += capacity_violation_kg(route, vertices)
+    missing = sorted(customer_ids - set(visited))
+    duplicate_visits = len(visited) - len(set(visited))
+    feasible = (
+        not missing
+        and duplicate_visits == 0
+        and battery_violation <= 1e-6
+        and capacity_violation <= 1e-6
+    )
+    return {
+        "feasible": feasible,
+        "energy_kwh": energy,
+        "missing_customers": missing,
+        "duplicate_visits": duplicate_visits,
+        "battery_violation_kwh": battery_violation,
+        "capacity_violation_kg": capacity_violation,
+        "customers_served": len(set(visited)),
+        "customers_total": len(customer_ids),
+    }
+
+
+def _infeasibility_reasons(report: dict) -> list[str]:
+    reasons: list[str] = []
+    if report["missing_customers"]:
+        reasons.append(f"clientes faltantes ({len(report['missing_customers'])})")
+    if report["duplicate_visits"] > 0:
+        reasons.append(f"visitas duplicadas ({report['duplicate_visits']})")
+    if report["battery_violation_kwh"] > 1e-6:
+        reasons.append(f"violación batería ({report['battery_violation_kwh']:.2f} kWh)")
+    if report["capacity_violation_kg"] > 1e-6:
+        reasons.append(
+            f"violación capacidad ({report['capacity_violation_kg']:.2f} kg)"
+        )
+    return reasons or ["desconocida"]
+
+
+def _format_missing_customers(missing: list[int], limit: int = 12) -> str:
+    if not missing:
+        return "ninguno"
+    if len(missing) <= limit:
+        return str(missing)
+    head = ", ".join(str(i) for i in missing[:limit])
+    return f"[{head}, ... +{len(missing) - limit} más]"
+
+
+def log_infeasible_candidate(
+    report: dict,
+    *,
+    fgen: float,
+    instance: str | None = None,
+    routes_count: int | None = None,
+    station_visits: int | None = None,
+    feasible_alternative: dict | None = None,
+    indent: str = "",
+) -> None:
+    label = "[MEJOR CANDIDATO INFACTIBLE]"
+    inst_part = f" {instance}" if instance else ""
+    reasons = ", ".join(_infeasibility_reasons(report))
+    print(f"{indent}{label}{inst_part} (NO válido para Gap / comparación MIP)")
+    print(
+        f"{indent}  f_gen={fgen:.2f} | energía simulada={report['energy_kwh']:.2f} kWh"
+    )
+    print(
+        f"{indent}  clientes={report['customers_served']}/{report['customers_total']} | "
+        f"faltantes={_format_missing_customers(report['missing_customers'])} | "
+        f"duplicados={report['duplicate_visits']}"
+    )
+    print(
+        f"{indent}  viol_batería={report['battery_violation_kwh']:.4f} kWh | "
+        f"viol_capacidad={report['capacity_violation_kg']:.4f} kg"
+    )
+    if routes_count is not None or station_visits is not None:
+        parts = []
+        if routes_count is not None:
+            parts.append(f"rutas={routes_count}")
+        if station_visits is not None:
+            parts.append(f"visitas_estaciones={station_visits}")
+        print(f"{indent}  {' | '.join(parts)}")
+    print(f"{indent}  causas: {reasons}")
+    if feasible_alternative is not None:
+        alt = feasible_alternative["validation"]
+        print(
+            f"{indent}[MEJOR CANDIDATO FACTIBLE EN BÚSQUEDA] "
+            f"f_gen={feasible_alternative['f']:.2f} | "
+            f"energía={alt['energy_kwh']:.2f} kWh | "
+            f"clientes={alt['customers_served']}/{alt['customers_total']}"
+        )
+
+
+def _update_feasibility_trackers(
+    routes: list[list[int]],
+    f_val: float,
+    vertices: dict[int, Vertex],
+    arcs: dict,
+    reserve_pct: float,
+    best_feasible: dict | None,
+    best_infeasible: dict | None,
+) -> tuple[dict | None, dict | None]:
+    report = validate_solution(routes, vertices, arcs, reserve_pct)
+    entry = {"routes": routes, "f": f_val, "validation": report}
+    if report["feasible"]:
+        if best_feasible is None or f_val < best_feasible["f"] - 1e-6:
+            best_feasible = entry
+    elif best_infeasible is None or f_val < best_infeasible["f"] - 1e-6:
+        best_infeasible = entry
+    return best_feasible, best_infeasible
+
+
+def _reconstruct_path(
+    predecessor: dict[tuple[int, float], tuple[int, float]], key: tuple[int, float]
+) -> list[int]:
+    path = [key[0]]
+    state = key
+    while state in predecessor:
+        state = predecessor[state]
+        path.append(state[0])
+    path.reverse()
+    return path
+
+
+def _pareto_segment_arrivals(
+    arrivals: list[tuple[float, float, list[int]]],
+) -> list[tuple[float, list[int], float]]:
+    if not arrivals:
+        return []
+    kept: list[tuple[float, list[int], float]] = []
+    for cost, end_batt, path in arrivals:
+        dominated = False
+        for other_cost, other_batt, other_path in arrivals:
+            if other_cost == cost and other_batt == end_batt and other_path is path:
+                continue
+            if other_cost <= cost + 1e-6 and other_batt >= end_batt - 1e-6:
+                if other_cost < cost - 1e-6 or other_batt > end_batt + 1e-6:
+                    dominated = True
+                    break
+        if not dominated:
+            kept.append((cost, path, end_batt))
+    return kept
+
+
+def segment_path_options(
     from_i: int,
     to_j: int,
     load_kg: float,
@@ -517,9 +708,79 @@ def min_energy_path(
     charge_nodes: list[int],
     min_end_batt: float = 0.0,
     reserve_kwh: float = 0.0,
-) -> tuple[float, list[int], float]:
+) -> list[tuple[float, list[int], float]]:
+    direct = _segment_path_search_core(
+        from_i,
+        to_j,
+        load_kg,
+        start_batt,
+        vertices,
+        arcs,
+        charge_nodes,
+        min_end_batt,
+        reserve_kwh,
+    )
+    if direct:
+        return direct
+
+    if min_end_batt > 0.0:
+        ordered = [s for s in charge_nodes if vertices[s].is_station] + [
+            s for s in charge_nodes if vertices[s].is_depot
+        ]
+        detours: list[tuple[float, float, list[int]]] = []
+        for st in ordered:
+            if st == from_i:
+                continue
+            first_legs = _segment_path_search_core(
+                from_i,
+                st,
+                load_kg,
+                start_batt,
+                vertices,
+                arcs,
+                charge_nodes,
+                0.0,
+                reserve_kwh,
+            )
+            for cost1, path1, batt1 in first_legs:
+                second_legs = _segment_path_search_core(
+                    st,
+                    to_j,
+                    load_kg,
+                    batt1,
+                    vertices,
+                    arcs,
+                    charge_nodes,
+                    min_end_batt,
+                    reserve_kwh,
+                )
+                for cost2, path2, batt2 in second_legs:
+                    detours.append((cost1 + cost2, batt2, path1 + path2[1:]))
+        return _pareto_segment_arrivals(detours)
+
+    return []
+
+
+def _segment_path_search_core(
+    from_i: int,
+    to_j: int,
+    load_kg: float,
+    start_batt: float,
+    vertices: dict[int, Vertex],
+    arcs: dict,
+    charge_nodes: list[int],
+    min_end_batt: float,
+    reserve_kwh: float,
+) -> list[tuple[float, float, list[int]]]:
     if from_i == to_j:
-        return 0.0, [from_i], start_batt
+        need = (
+            max(min_end_batt, reserve_kwh)
+            if not is_charge_node(vertices[from_i])
+            else 0.0
+        )
+        if start_batt + 1e-9 >= need:
+            return [(0.0, start_batt, [from_i])]
+        return []
 
     allowed = set(charge_nodes) | {from_i, to_j}
     best_cost: dict[tuple[int, float], float] = {}
@@ -528,6 +789,10 @@ def min_energy_path(
     start_key = (from_i, round(start_batt, 4))
     best_cost[start_key] = 0.0
     heapq.heappush(pq, (0.0, from_i, start_batt))
+    arrivals: list[tuple[float, float, list[int]]] = []
+    need_at_dest = (
+        max(min_end_batt, reserve_kwh) if not is_charge_node(vertices[to_j]) else 0.0
+    )
 
     while pq:
         cost, u, batt = heapq.heappop(pq)
@@ -535,19 +800,8 @@ def min_energy_path(
         if best_cost.get(key, 1e18) < cost - 1e-9:
             continue
         if u == to_j:
-            need = (
-                max(min_end_batt, reserve_kwh)
-                if not is_charge_node(vertices[u])
-                else 0.0
-            )
-            if batt + 1e-9 >= need:
-                path = [u]
-                state = key
-                while state in predecessor:
-                    state = predecessor[state]
-                    path.append(state[0])
-                path.reverse()
-                return cost, path, batt
+            if batt + 1e-9 >= need_at_dest:
+                arrivals.append((cost, batt, _reconstruct_path(predecessor, key)))
             continue
 
         for v in allowed:
@@ -570,46 +824,65 @@ def min_energy_path(
                 predecessor[nkey] = key
                 heapq.heappush(pq, (nc, v, nb))
 
-    if min_end_batt > 0.0:
-        best_detour: tuple[float, list[int], float] | None = None
-        ordered = [s for s in charge_nodes if vertices[s].is_station] + [
-            s for s in charge_nodes if vertices[s].is_depot
-        ]
-        for st in ordered:
-            if st == from_i:
-                continue
-            e1, p1, b1 = min_energy_path(
-                from_i,
-                st,
-                load_kg,
-                start_batt,
-                vertices,
-                arcs,
-                charge_nodes,
-                0.0,
-                reserve_kwh,
-            )
-            if e1 >= 1e17:
-                continue
-            e2, p2, b2 = min_energy_path(
-                st, to_j, load_kg, b1, vertices, arcs, charge_nodes, 0.0, reserve_kwh
-            )
-            if e2 >= 1e17:
-                continue
-            need_end = (
-                max(min_end_batt, reserve_kwh)
-                if not is_charge_node(vertices[to_j])
-                else 0.0
-            )
-            if b2 + 1e-6 < need_end:
-                continue
-            total = e1 + e2
-            if best_detour is None or total < best_detour[0]:
-                best_detour = (total, p1 + p2[1:], b2)
-        if best_detour is not None:
-            return best_detour
+    return _pareto_segment_arrivals(arrivals)
 
-    return 1e18, [], 0.0
+
+def min_start_battery_for_segment(
+    from_i: int,
+    to_j: int,
+    load_kg: float,
+    vertices: dict[int, Vertex],
+    arcs: dict,
+    charge_nodes: list[int],
+    min_end_batt: float = 0.0,
+    reserve_kwh: float = 0.0,
+) -> float:
+    lo, hi = 0.0, BATTERY_CAPACITY_KWH
+    for _ in range(24):
+        mid = (lo + hi) * 0.5
+        if segment_path_options(
+            from_i,
+            to_j,
+            load_kg,
+            mid,
+            vertices,
+            arcs,
+            charge_nodes,
+            min_end_batt,
+            reserve_kwh,
+        ):
+            hi = mid
+        else:
+            lo = mid
+    return hi
+
+
+def min_energy_path(
+    from_i: int,
+    to_j: int,
+    load_kg: float,
+    start_batt: float,
+    vertices: dict[int, Vertex],
+    arcs: dict,
+    charge_nodes: list[int],
+    min_end_batt: float = 0.0,
+    reserve_kwh: float = 0.0,
+) -> tuple[float, list[int], float]:
+    options = segment_path_options(
+        from_i,
+        to_j,
+        load_kg,
+        start_batt,
+        vertices,
+        arcs,
+        charge_nodes,
+        min_end_batt,
+        reserve_kwh,
+    )
+    if not options:
+        return 1e18, [], 0.0
+    cost, path, end_batt = min(options, key=lambda item: item[0])
+    return cost, path, end_batt
 
 
 def _charge_detour_to(
@@ -644,6 +917,35 @@ def _charge_detour_to(
     return best
 
 
+def _segment_need_end_battery(
+    client_seq: list[int],
+    target_idx: int,
+    vertices: dict[int, Vertex],
+    arcs: dict,
+    station_idxs: list[int],
+    depot_idxs: list[int],
+    reserve_kwh: float,
+) -> float:
+    if target_idx + 1 >= len(client_seq):
+        return 0.0
+    target_node = client_seq[target_idx]
+    next_node = client_seq[target_idx + 1]
+    if not vertices[target_node].is_customer:
+        return 0.0
+    next_load = load_leaving_position(client_seq, target_idx, vertices)
+    next_seg_nodes = charge_nodes_for_segment(next_node, station_idxs, depot_idxs)
+    return min_start_battery_for_segment(
+        target_node,
+        next_node,
+        next_load,
+        vertices,
+        arcs,
+        next_seg_nodes,
+        min_end_batt=0.0,
+        reserve_kwh=reserve_kwh,
+    )
+
+
 def greedy_station_insert_route(
     client_seq: list[int],
     vertices: dict[int, Vertex],
@@ -666,7 +968,16 @@ def greedy_station_insert_route(
         next_cust = client_seq[cust_idx + 1]
         load = load_leaving_position(client_seq, cust_idx, vertices)
         seg_nodes = charge_nodes_for_segment(next_cust, station_idxs, depot_idxs)
-        seg_e, seg_path, end_batt = min_energy_path(
+        need_end = _segment_need_end_battery(
+            client_seq,
+            cust_idx + 1,
+            vertices,
+            arcs,
+            station_idxs,
+            depot_idxs,
+            reserve_kwh,
+        )
+        segment_options = segment_path_options(
             current,
             next_cust,
             load,
@@ -674,9 +985,11 @@ def greedy_station_insert_route(
             vertices,
             arcs,
             seg_nodes,
+            min_end_batt=need_end,
             reserve_kwh=reserve_kwh,
         )
-        if seg_e < 1e17:
+        if segment_options:
+            seg_e, seg_path, end_batt = min(segment_options, key=lambda item: item[0])
             full.extend(seg_path[1:])
             batt = end_batt
             cust_idx += 1
@@ -737,7 +1050,40 @@ def greedy_station_insert_route(
                 full.extend(path[1:])
                 cust_idx += 1
             else:
-                break
+                depot_start = depot_idxs[0]
+                return_e, return_path, return_batt = min_energy_path(
+                    current,
+                    depot_start,
+                    load,
+                    batt,
+                    vertices,
+                    arcs,
+                    seg_nodes,
+                    reserve_kwh=reserve_kwh,
+                )
+                forward_e, forward_path, forward_batt = (
+                    (0.0, [depot_start], BATTERY_CAPACITY_KWH)
+                    if return_e >= 1e17
+                    else min_energy_path(
+                        depot_start,
+                        next_cust,
+                        load,
+                        return_batt,
+                        vertices,
+                        arcs,
+                        seg_nodes,
+                        min_end_batt=need_end,
+                        reserve_kwh=reserve_kwh,
+                    )
+                )
+                if forward_e < 1e17:
+                    if return_e < 1e17:
+                        full.extend(return_path[1:])
+                    full.extend(forward_path[1:])
+                    batt = forward_batt
+                    cust_idx += 1
+                else:
+                    return list(client_seq)
     if full[-1] != client_seq[-1]:
         tail = _charge_detour_to(
             full[-1],
@@ -789,10 +1135,12 @@ def dp_station_insertion(
         node_j = client_seq[step + 1]
         load = load_leaving_position(client_seq, step, vertices)
         seg_nodes = charge_nodes_for_segment(node_j, station_idxs, depot_idxs)
-        need_end = reserve_kwh if step + 1 < n - 1 else 0.0
+        need_end = _segment_need_end_battery(
+            client_seq, step + 1, vertices, arcs, station_idxs, depot_idxs, reserve_kwh
+        )
         new_labels: list[tuple[float, float, list[int]]] = []
         for batt, cost, path in labels[step]:
-            seg_e, seg_path, end_batt = min_energy_path(
+            for seg_e, seg_path, end_batt in segment_path_options(
                 node_i,
                 node_j,
                 load,
@@ -802,11 +1150,9 @@ def dp_station_insertion(
                 seg_nodes,
                 min_end_batt=need_end,
                 reserve_kwh=reserve_kwh,
-            )
-            if seg_e >= 1e17:
-                continue
-            merged = path + seg_path[1:]
-            new_labels.append((end_batt, cost + seg_e, merged))
+            ):
+                merged = path + seg_path[1:]
+                new_labels.append((end_batt, cost + seg_e, merged))
         if not new_labels:
             return greedy_station_insert_route(
                 client_seq, vertices, arcs, station_idxs, depot_idxs, reserve_pct
@@ -853,7 +1199,10 @@ def exact_energy_solution(
     arcs: dict,
     reserve_pct: float = 0.0,
 ) -> float:
-    return sum(evaluate_route_exact(r, vertices, arcs, reserve_pct)[0] for r in routes)
+    report = validate_solution(routes, vertices, arcs, reserve_pct)
+    if not report["feasible"]:
+        return float("inf")
+    return report["energy_kwh"]
 
 
 def surrogate_batt_violation_delta(
@@ -1186,10 +1535,18 @@ def build_routes_with_dp(
     depot_idxs: list[int],
     reserve_pct: float = 0.0,
 ) -> list[list[int]]:
-    return [
-        dp_station_insertion(r, vertices, arcs, station_idxs, depot_idxs, reserve_pct)
-        for r in client_routes
-    ]
+    full_routes = []
+    for route in client_routes:
+        inserted = dp_station_insertion(
+            route, vertices, arcs, station_idxs, depot_idxs, reserve_pct
+        )
+        report = validate_solution([inserted], vertices, arcs, reserve_pct)
+        if not report["feasible"]:
+            inserted = greedy_station_insert_route(
+                route, vertices, arcs, station_idxs, depot_idxs, reserve_pct
+            )
+        full_routes.append(inserted)
+    return full_routes
 
 
 def solve_distance_minimizing(
@@ -1343,7 +1700,8 @@ def run_eh_sats(
     seed: int = 42,
     verbose: bool = False,
     battery_reserve_pct: float = 0.0,
-) -> tuple[list[list[int]], float, float]:
+    instance_name: str | None = None,
+) -> tuple[list[list[int]], float, float, dict]:
     vertices = {v.idx: v for v in vertices_list}
     station_idxs = [v.idx for v in vertices_list if v.is_station]
     depot_idxs = [v.idx for v in vertices_list if v.is_depot]
@@ -1360,6 +1718,17 @@ def run_eh_sats(
 
     best_routes = [list(r) for r in full_routes]
     best_f = current_f
+    best_feasible: dict | None = None
+    best_infeasible: dict | None = None
+    best_feasible, best_infeasible = _update_feasibility_trackers(
+        best_routes,
+        best_f,
+        vertices,
+        arcs,
+        battery_reserve_pct,
+        best_feasible,
+        best_infeasible,
+    )
     tabu: dict[tuple[int, int], int] = {}
     tabu_iter = 0
     temperature = T0
@@ -1417,6 +1786,15 @@ def run_eh_sats(
             current_f = trial_struct_f
             for tkey in chosen.tabu_keys():
                 tabu[tkey] = tabu_iter + K_TABU
+            best_feasible, best_infeasible = _update_feasibility_trackers(
+                full_routes,
+                current_f,
+                vertices,
+                arcs,
+                battery_reserve_pct,
+                best_feasible,
+                best_infeasible,
+            )
             if current_f < best_f - 1e-6:
                 best_f = current_f
                 best_routes = [list(r) for r in full_routes]
@@ -1435,7 +1813,37 @@ def run_eh_sats(
     final_energy = exact_energy_solution(
         best_routes, vertices, arcs, battery_reserve_pct
     )
-    return best_routes, final_energy, best_f
+    validation = validate_solution(best_routes, vertices, arcs, battery_reserve_pct)
+    validation["fgen"] = best_f
+    validation["infeasible_candidate"] = None
+    validation["feasible_alternative"] = None
+    if not validation["feasible"]:
+        candidate = best_infeasible or {
+            "routes": best_routes,
+            "f": best_f,
+            "validation": validation,
+        }
+        validation["infeasible_candidate"] = {
+            "fgen": candidate["f"],
+            "energy_kwh": candidate["validation"]["energy_kwh"],
+            "report": candidate["validation"],
+        }
+        if best_feasible is not None:
+            validation["feasible_alternative"] = {
+                "fgen": best_feasible["f"],
+                "energy_kwh": best_feasible["validation"]["energy_kwh"],
+                "report": best_feasible["validation"],
+            }
+        log_infeasible_candidate(
+            validation["infeasible_candidate"]["report"],
+            fgen=validation["infeasible_candidate"]["fgen"],
+            instance=instance_name,
+            routes_count=len(best_routes),
+            station_visits=count_station_visits(best_routes, vertices),
+            feasible_alternative=best_feasible,
+            indent="  ",
+        )
+    return best_routes, final_energy, best_f, validation
 
 
 def _run_eh_on_instance(
@@ -1446,8 +1854,12 @@ def _run_eh_on_instance(
     n_c, n_s = parse_instance_name(name)
     vertices, arcs = load_instance(name)
     t0 = time.time()
-    routes, energy, fgen = run_eh_sats(
-        vertices, arcs, seed=seed, battery_reserve_pct=battery_reserve_pct
+    routes, energy, fgen, validation = run_eh_sats(
+        vertices,
+        arcs,
+        seed=seed,
+        battery_reserve_pct=battery_reserve_pct,
+        instance_name=name,
     )
     t_s = time.time() - t0
     vmap = {v.idx: v for v in vertices}
@@ -1455,11 +1867,16 @@ def _run_eh_on_instance(
         instance=name,
         customers=n_c,
         stations=n_s,
-        energy=round(energy, 2),
+        energy=round(energy, 2) if math.isfinite(energy) else None,
         fgen=round(fgen, 2),
         routes=len(routes),
         station_visits=count_station_visits(routes, vmap),
         time_s=round(t_s, 2),
+        feasible=validation["feasible"],
+        customers_served=validation["customers_served"],
+        missing_customers=len(validation["missing_customers"]),
+        battery_violation_kwh=round(validation["battery_violation_kwh"], 4),
+        capacity_violation_kg=round(validation["capacity_violation_kg"], 4),
     )
 
 
@@ -1487,9 +1904,14 @@ def _run_eh_batch(
         row = _run_eh_on_instance(name, seed, battery_reserve_pct)
         results.append(row)
         if show_customers:
+            energy_text = (
+                f"{row['energy']:>10.2f}"
+                if row["energy"] is not None
+                else f"{'INFACTIBLE':>10}"
+            )
             print(
                 f"{row['instance']:<14} {row['customers']:>8} {row['stations']:>4} "
-                f"{row['energy']:>10.2f} {row['routes']:>6} "
+                f"{energy_text} {row['routes']:>6} "
                 f"{row['station_visits']:>7} {row['time_s']:>5.1f}s"
             )
         else:
@@ -1545,13 +1967,22 @@ def run_small_benchmark(
         t_mip = time.time() - t0
 
         t0 = time.time()
-        _, eh_e, _ = run_eh_sats(vertices, arcs, seed=seed)
+        _, eh_e, _, eh_validation = run_eh_sats(
+            vertices,
+            arcs,
+            seed=seed,
+            instance_name=name,
+        )
         t_eh = time.time() - t0
 
         ref = mip_e if mip_e < 1e17 else None
-        gap = absolute_gap(eh_e, ref) if ref is not None else float("nan")
+        eh_feasible = eh_validation["feasible"] and math.isfinite(eh_e)
+        gap = (
+            absolute_gap(eh_e, ref) if ref is not None and eh_feasible else float("nan")
+        )
         mip_str = f"{mip_e:.2f}" if ref is not None else "---"
-        gap_str = f"{gap:.2f}" if ref is not None else "---"
+        eh_str = f"{eh_e:.2f}" if eh_feasible else "INFACTIBLE"
+        gap_str = f"{gap:.2f}" if ref is not None and eh_feasible else "---"
 
         row = dict(
             instance=name,
@@ -1560,18 +1991,22 @@ def run_small_benchmark(
             mip_energy=round(mip_e, 2) if ref is not None else None,
             mip_status=mip_status,
             mip_time_s=round(t_mip, 2),
-            eh_energy=round(eh_e, 2),
+            eh_energy=round(eh_e, 2) if eh_feasible else None,
+            eh_feasible=eh_feasible,
             eh_time_s=round(t_eh, 2),
-            gap_pct=round(gap, 2) if ref is not None else None,
+            gap_pct=round(gap, 2) if ref is not None and eh_feasible else None,
+            eh_missing_customers=len(eh_validation["missing_customers"]),
+            eh_battery_violation=round(eh_validation["battery_violation_kwh"], 4),
         )
         results.append(row)
         print(
             f"{name:<10} {mip_str:>10} {t_mip:>6.1f}s {mip_status:>18} "
-            f"{eh_e:>10.2f} {t_eh:>5.1f}s {gap_str:>7}%"
+            f"{eh_str:>10} {t_eh:>5.1f}s {gap_str:>7}%"
         )
 
     valid = [r for r in results if r["gap_pct"] is not None]
     solved = [r for r in results if r["mip_energy"] is not None]
+    feasible_eh = [r for r in results if r["eh_feasible"]]
     if valid:
         avg_mip = sum(r["mip_energy"] for r in solved) / len(solved)
         avg_eh = sum(r["eh_energy"] for r in valid) / len(valid)
@@ -1582,6 +2017,7 @@ def run_small_benchmark(
             f"{avg_eh:>10.2f} {'':>6} {avg_gap:>7.2f}%"
         )
         print(f"MIP resueltos: {len(solved)}/{len(results)}")
+        print(f"EH factibles: {len(feasible_eh)}/{len(results)}")
     elif not ORTOOLS_AVAILABLE:
         print("\nInstale OR-Tools: pip install ortools")
 
@@ -1592,8 +2028,14 @@ def run_small_benchmark(
                 f"  {r['instance']}: OR-Tools={r['mip_energy']:.2f} kWh, "
                 f"EH-SA/TS={r['eh_energy']:.2f} kWh, Gap={r['gap_pct']:.2f}%"
             )
-        else:
+        elif r["eh_feasible"]:
             print(f"  {r['instance']}: EH-SA/TS={r['eh_energy']:.2f} kWh (sin ref MIP)")
+        else:
+            print(
+                f"  {r['instance']}: EH-SA/TS=INFACTIBLE "
+                f"(clientes faltantes={r['eh_missing_customers']}, "
+                f"viol_bat={r['eh_battery_violation']:.2f} kWh)"
+            )
 
     return results
 
@@ -1761,7 +2203,7 @@ def run_energy_vs_distance(seed=42):
     for name in LARGE_INSTANCES:
         vertices, arcs = load_instance(name)
         t0 = time.time()
-        _, energy_min, _ = run_eh_sats(vertices, arcs, seed=seed)
+        _, energy_min, _, _ = run_eh_sats(vertices, arcs, seed=seed)
         _, energy_from_dist = solve_distance_minimizing(vertices, arcs, seed=seed + 1)
         t_s = time.time() - t0
         pct = relative_gap(energy_from_dist, energy_min)
@@ -1910,7 +2352,12 @@ def _execute_mode(
             return
         print(f"\nEjecutando instancia: {single_name}")
         row = _run_eh_on_instance(single_name, seed)
-        print(f"Energía EH-SA/TS: {row['energy']:.4f} kWh")
+        if row["feasible"] and row["energy"] is not None:
+            print(f"Energía EH-SA/TS: {row['energy']:.4f} kWh")
+        else:
+            print(
+                "Energía EH-SA/TS: INFACTIBLE (ver bloque [MEJOR CANDIDATO INFACTIBLE] arriba)"
+            )
         print(f"f_gen:            {row['fgen']:.4f}")
         print(f"Tiempo:           {row['time_s']:.2f}s")
         print(f"Rutas:            {row['routes']}")

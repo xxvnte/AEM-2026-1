@@ -31,13 +31,15 @@ Sobre esta base híbrida, el EH-SA/TS incorpora tres capas de mejora que atacan 
 
 ## Procedimiento de Inicialización
 
-La solución inicial se construye en dos fases. En la primera, se aplica un procedimiento _greedy_ aleatorio que asigna clientes a vehículos construyendo rutas sin considerar las restricciones de batería. En la segunda, la Programación Dinámica de la Capa 3 inserta el plan de recarga óptimo inicial sobre cada ruta construida, entregando al algoritmo principal una solución estructuralmente válida. Este mecanismo conecta directamente con la Capa 3, asegurando que el EH-SA/TS parta siempre de una solución con un plan de recarga consistente y óptimo para la secuencia inicial de clientes.
+La solución inicial se construye en dos fases. En la primera, se aplica un procedimiento _greedy_ aleatorio que asigna clientes a vehículos construyendo rutas sin considerar las restricciones de batería. En la segunda, la Programación Dinámica de la Capa 3 inserta el plan de recarga sobre cada ruta construida. El objetivo es entregar al algoritmo principal una solución **lo más factible posible** (todos los clientes visitados, capacidad y batería respetadas); si el DP no encuentra un plan completo, se aplican mecanismos de respaldo (greedy de estaciones y, en última instancia, retorno al depósito para recarga completa).
 
 ```
 Fase 1: greedy aleatorio → construir rutas asignando clientes a vehículos
         (sin considerar batería aún)
 Fase 2: DP inserta plan de recarga inicial sobre cada ruta
-→ SA parte de una solución estructuralmente válida
+        (con fallback greedy + retorno al depósito si hace falta)
+→ SA parte con un plan de recarga coherente para la secuencia inicial
+  (factibilidad estricta verificada al reportar resultados)
 ```
 
 ---
@@ -126,29 +128,39 @@ Para reducir el número de movimientos evaluados, se restringe el vecindario a l
 
 Inspirada en el procedimiento _station_insertion_ de Küçükoğlu et al. (2019), la Capa 3 incorpora un módulo de Programación Dinámica (DP) que resuelve el subproblema de inserción óptima de estaciones de recarga para una secuencia de clientes fija. La adaptación al EVRP de Zhang et al. (2018) elimina el componente de ventanas de tiempo de las etiquetas y sustituye el objetivo de minimización de distancia por el de minimización de energía.
 
-Dado que el modelo asume recarga completa al visitar una estación, la DP no decide cuánta energía cargar sino **dónde y cuándo visitar las estaciones** a lo largo de la ruta. Las etiquetas DP tienen la forma ${q,\ c}$, donde $q$ es el nivel de batería actual y $c$ es el coste energético acumulado. Para cada par de clientes consecutivos $(C_i, C_{i+1})$, la DP evalúa todos los caminos posibles: directo sin recargar y vía una o más estaciones disponibles, seleccionando el camino de menor coste energético factible.
+Dado que el modelo asume recarga completa al visitar una estación o el depósito, la DP no decide cuánta energía cargar sino **dónde y cuándo visitar las estaciones** a lo largo de la ruta. Las etiquetas DP tienen la forma $\{q,\ c\}$, donde $q$ es el nivel de batería al llegar a un nodo y $c$ es el coste energético acumulado.
+
+Para cada par de nodos consecutivos en la secuencia $(N_{i-1}, N_i)$, la DP no elige únicamente el camino de **menor energía local**: conserva un conjunto **Pareto** de etiquetas no dominadas en $(q, c)$, porque un tramo barato en energía puede dejar batería insuficiente para continuar hacia $N_{i+1}$. Concretamente:
+
+- Se generan todos los caminos factibles entre $N_{i-1}$ y $N_i$ (directo o vía estaciones/depósito).
+- Solo se acepta una etiqueta con batería $q'$ en $N_i$ si $q' \geq q_{\min}(N_i \to N_{i+1})$, es decir, si alcanza la batería mínima necesaria para el tramo siguiente (**lookahead**).
+- Entre las etiquetas válidas se mantiene el frente Pareto en $(q, c)$ antes de pasar al siguiente índice.
+
+Si en algún paso no quedan etiquetas válidas, se activa un **greedy de respaldo** con la misma lógica de lookahead; si aun así no hay camino factible hacia el siguiente cliente, se permite un **retorno al depósito** (recarga completa) y se continúa la ruta.
 
 ```
 Entrada: secuencia de clientes de UNA ruta
          R = (depot → C1 → C2 → ... → Cn → depot)
 
 Etiquetas DP: {q, c}
-  q → nivel de batería actual
+  q → batería al llegar al nodo
   c → coste energético acumulado
   (sin componente de tiempo: no hay ventanas de tiempo)
 
-Para cada par consecutivo (Ci, Ci+1):
-  Evaluar todos los caminos posibles:
-  - directo: ¿alcanza la batería? → calcular energía
-  - vía estación F: ¿alcanza a F? ¿de F alcanza Ci+1? → calcular energía
-  Seleccionar camino de menor coste energético factible
+Para cada par consecutivo (N(i-1), Ni):
+  Para cada etiqueta {q, c} en L(i-1):
+    Generar caminos factibles (directo / vía estación / vía depósito)
+    Calcular {q', c'} al llegar a Ni
+    Aceptar solo si q' ≥ q_min(Ni → N(i+1))   // lookahead
+  Mantener etiquetas Pareto no dominadas en L(i)
 
-Salida: plan de recarga óptimo + coste energético f_e(R)
+Fallback si L(i) queda vacío:
+  greedy de estaciones → retorno al depósito si hace falta
+
+Salida: plan de recarga + coste energético f_e(R)
 ```
 
-La DP se invoca sobre cada ruta modificada inmediatamente después de que SA acepta un movimiento, garantizando que el plan de recarga permanezca consistente y óptimo para la configuración actual. De esta forma, SA evalúa sus movimientos sobre una solución con el subproblema de recarga ya resuelto de forma óptima, reduciendo la variabilidad del coste entre iteraciones y estabilizando el paisaje de optimización.
-
-En la implementación concreta, el DP se ejecuta sobre el movimiento elegido por TS inmediatamente antes de la decisión de aceptación de SA, aplicándose únicamente sobre las rutas afectadas por dicho movimiento. Si SA rechaza el movimiento, el resultado del DP se descarta y la solución actual permanece inalterada. Esta estrategia representa una decisión de implementación que favorece la calidad de la evaluación SA a expensas de un costo computacional adicional acotado por iteración.
+La DP se invoca sobre cada ruta modificada **antes** de que SA decida aceptar o rechazar el movimiento de TS, aplicándose únicamente sobre las rutas afectadas. Si SA rechaza el movimiento, el resultado del DP se descarta. Esto favorece evaluar $f_{gen}$ sobre un plan de recarga coherente.
 
 ---
 
@@ -156,13 +168,22 @@ En la implementación concreta, el DP se ejecuta sobre el movimiento elegido por
 
 El EH-SA/TS opera con tres niveles de evaluación con distintos propósitos y costes computacionales:
 
-| Función                                                            | Cuándo se usa                                                     | Propósito                                                             |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------- | --------------------------------------------------------------------- |
-| $f'_{approx}(S)$                                                   | Evaluación de cada vecino en TS                                   | Evaluación rápida, evita recálculo en cascada                         |
-| $f_{gen}(S) = f_e + \gamma_{cap} L_{cap} + \gamma_{batt} L_{batt}$ | Criterio de aceptación SA sobre el movimiento elegido **post-DP** | Permite explorar regiones infactibles con plan de recarga consistente |
-| $f_e$ exacta                                                       | Después de que DP re-optimiza cada ruta del movimiento elegido    | Coste energético real tras optimizar el plan de recarga               |
+| Función                                                            | Cuándo se usa                                                     | Propósito                                                            |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------- | -------------------------------------------------------------------- |
+| $f'_{approx}(S)$                                                   | Evaluación de cada vecino en TS                                   | Evaluación rápida, evita recálculo en cascada                        |
+| $f_{gen}(S) = f_e + \gamma_{cap} L_{cap} + \gamma_{batt} L_{batt}$ | Criterio de aceptación SA sobre el movimiento elegido **post-DP** | Guía la búsqueda; permite penalizar violaciones de capacidad/batería |
+| $f_e$ exacta (con penalizaciones)                                  | Dentro de $f_{gen}$ durante el loop híbrido                       | Coste energético simulado tras reoptimizar el plan de recarga        |
+| **Validación estricta**                                            | Al finalizar y en comparaciones con MIP (`-small`)                | Comprueba factibilidad real antes de reportar energía                |
 
-**Nota:** En la implementación, el DP se invoca sobre el movimiento elegido por TS antes de que SA tome la decisión de aceptar o rechazar. Esto implica que si SA rechaza el movimiento, el trabajo del DP de esa iteración se descarta. Sin embargo, dado que DP se aplica únicamente sobre las rutas afectadas por el movimiento (no sobre la solución completa), el costo computacional adicional es acotado. La ventaja de esta estrategia es que $f_{gen}$​ opera sobre un plan de recarga óptimo en lugar de uno aproximado, mejorando la calidad de la comparación y reduciendo aceptaciones erróneas debidas a violaciones de batería artificiales.
+**Búsqueda vs reporte.** Durante SA/TS, $f_{gen}$ puede explorar soluciones con penalizaciones ($L_{cap}$, $L_{batt}$) para no bloquear la exploración. En cambio, la **energía EH-SA/TS que se compara con OR-Tools** solo se reporta si la solución cumple simultáneamente:
+
+- todos los clientes visitados **exactamente una vez**;
+- capacidad del vehículo respetada en cada ruta;
+- batería $\geq 0$ en **cada arco** (simulación estricta, sin “resetear” violaciones).
+
+Si alguna condición falla, la instancia se marca como **`INFACTIBLE`** y no se calcula Absolute Gap frente al MIP.
+
+**Nota:** En la implementación, el DP se invoca sobre el movimiento elegido por TS antes de que SA tome la decisión de aceptar o rechazar. Si SA rechaza el movimiento, el trabajo del DP de esa iteración se descarta. Dado que el DP se aplica únicamente sobre las rutas afectadas por el movimiento, el costo computacional adicional es acotado. La ventaja de esta estrategia es que $f_{gen}$ opera sobre un plan de recarga reoptimizado en lugar de uno aproximado, mejorando la calidad de la comparación en SA.
 
 La función sustituta se construye como:
 
@@ -182,19 +203,23 @@ Entrada: Secuencia de clientes de una ruta
          Conjunto de estaciones S
          Capacidad de batería T
 
-Salida:  Plan de recarga óptimo y coste energético f_e(R)
+Salida:  Plan de recarga y coste energético f_e(R)
 
 1: Inicializar etiqueta L(0) ← {q = T, c = 0}    // batería llena en depósito
 2: Para i = 1 hasta n+1:
 3:   Para cada etiqueta {q, c} en L(i-1):
-4:     Para cada camino posible entre C(i-1) y Ci
-        (directo o vía estaciones de S):
-5:       Si q ≥ energía mínima requerida por el camino:
-6:         Calcular {q', c'} resultante en nodo Ci
-7:         Si {q', c'} no está dominado por ninguna etiqueta en L(i):
-8:           Agregar {q', c'} a L(i)
-9:   Eliminar etiquetas dominadas de L(i)
-10: Retornar etiqueta de menor c en L(n+1) y plan de recarga asociado
+4:     Para cada camino factible entre N(i-1) y Ni
+        (directo, vía estación o vía depósito):
+5:       Si q ≥ energía requerida por el camino:
+6:         Calcular {q', c'} al llegar a Ni
+7:         Si Ni no es el depósito final:
+8:           Exigir q' ≥ q_min(Ni → N(i+1))       // lookahead hacia el siguiente nodo
+9:         Si {q', c'} no está dominado en L(i):
+10:          Agregar {q', c'} a L(i)
+11:   Eliminar etiquetas dominadas de L(i)
+12:   Si L(i) está vacío:
+13:     Aplicar greedy de respaldo; si falla, permitir retorno al depósito
+14: Retornar etiqueta de menor c en L(n+1) y plan de recarga asociado
 ```
 
 ---
@@ -260,7 +285,8 @@ Salida:  Mejor solución encontrada S*
 
 36:   T ← α · T
 
-37: Retornar S*
+37: E_reporte ← f_e estricta(S*) si S* es factible; INFACTIBLE en caso contrario
+38: Retornar S*, E_reporte
 ```
 
 ---
@@ -314,7 +340,7 @@ python main.py single C25R2-1
 python main.py single C14R2 --seed 123
 ```
 
-Salida en consola (y en `logs/run_NNN_single_C25R2-1.txt`): energía EH-SA/TS (kWh), `f_gen`, tiempo, número de rutas y visitas a estaciones. No compara con el solver MIP; sirve para depurar o repetir un caso puntual.
+Salida en consola (y en `logs/run_NNN_single_C25R2-1.txt`): energía EH-SA/TS (kWh) si la solución es factible (`INFACTIBLE` en caso contrario), `f_gen`, tiempo, número de rutas y visitas a estaciones. No compara con el solver MIP; sirve para depurar o repetir un caso puntual.
 
 ### Modos disponibles
 
@@ -355,15 +381,16 @@ Las métricas siguen la notación de Zhang et al. (2018). En este proyecto, el s
 
 **Qué debe aparecer en el log** (`logs/run_NNN_small.txt`):
 
-- Energía del MIP (kWh), tiempo y estado (óptimo / factible / timeout).
-- Energía de EH-SA/TS (kWh) y tiempo.
-- **Absolute Gap (EH)** respecto al MIP, al estilo Tabla 2 del paper:
+- Energía del MIP (kWh), tiempo (`t_MIP`) y estado (óptimo / factible con límite de tiempo / infactible).
+- Energía de EH-SA/TS (kWh) y tiempo (`t_EH`), o la etiqueta **`INFACTIBLE`** si la solución no cumple todas las restricciones.
+- **Absolute Gap (EH)** respecto al MIP (solo si EH es factible y el MIP entregó referencia):
 
 $$\text{Gap} = \frac{E_{\text{EH}} - E_{\text{ref}}}{E_{\text{ref}}} \times 100\%$$
 
-donde \(E\_{\text{ref}}\) es la energía del MIP. Valores positivos indican que EH-SA/TS consume más energía que la referencia.
+donde \(E\_{\text{ref}}\) es la energía del MIP. Valores **positivos** indican que EH-SA/TS consume más energía que la referencia (comportamiento esperado frente a un óptimo), un gap negativo con EH factible sería inconsistente y suele indicar un error de validación.
 
-- Tabla resumen por instancia y promedios al final (`--- Resumen comparativo (modo -small) ---`).
+- Si EH es infactible, línea de diagnóstico con clientes servidos, faltantes y violaciones de batería/capacidad.
+- Tabla resumen por instancia y promedios al final (`--- Resumen comparativo (modo -small) ---`), incluyendo conteo `EH factibles: X/13`.
 
 Si OR-Tools no está instalado (`python -m pip install --user -r requirements.txt`), EH-SA/TS igual corre; la columna Gap muestra `---` y el resumen indica la instalación faltante.
 
