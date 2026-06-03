@@ -358,15 +358,15 @@ Salida en consola (y en `logs/run_NNN_single_C25R2-1.txt`): energía EH-SA/TS (k
 
 ### Modos disponibles
 
-| Modo                 | Comando                             | Log típico                            |
-| -------------------- | ----------------------------------- | ------------------------------------- |
-| Pequeñas             | `python main.py -small`             | `logs/run_001_small.txt`              |
-| Grandes              | `python main.py -large`             | `logs/run_001_large.txt`              |
-| Todo                 | `python main.py -all`               | `logs/run_001_all.txt`                |
-| Estaciones           | `python main.py recharge-stations`  | `logs/run_001_recharge-stations.txt`  |
-| Reserva batería      | `python main.py battery-reserve`    | `logs/run_001_battery-reserve.txt`    |
-| Energía vs distancia | `python main.py energy-vs-distance` | `logs/run_001_energy-vs-distance.txt` |
-| Una instancia        | `python main.py single <nombre>`    | `logs/run_001_single_<nombre>.txt`    |
+| Modo                 | Comando                             | Log / gráficos (`stats/<subcarpeta>/`, mismo prefijo que el log)  |
+| -------------------- | ----------------------------------- | ----------------------------------------------------------------- |
+| Pequeñas             | `python main.py -small`             | `logs/run_001_small.txt`, `stats/small/run_001_small_*.png`       |
+| Grandes              | `python main.py -large`             | `logs/run_001_large.txt`, `stats/large/run_001_large_*.png`       |
+| Todo                 | `python main.py -all`               | `logs/run_001_all.txt`, subcarpetas `small/`, `large/`, `extras/` |
+| Estaciones           | `python main.py recharge-stations`  | `logs/...`, `stats/extras/..._recharge_bars.png`                  |
+| Reserva batería      | `python main.py battery-reserve`    | `logs/...`, `stats/extras/..._battery_bars.png`                   |
+| Energía vs distancia | `python main.py energy-vs-distance` | `logs/...`, `stats/extras/..._evd_*.png`                          |
+| Una instancia        | `python main.py single <nombre>`    | `logs/...`, `stats/small/..._map_<nombre>.png`                    |
 
 También aceptan forma sin guión (`small`, `large`, `all`) o con guión (`-recharge-stations`, etc.).
 
@@ -407,6 +407,20 @@ donde \(E\_{\text{ref}}\) es la energía reportada por OR-Tools. Valores **posit
 - Tabla resumen por instancia y promedios al final (`--- Resumen comparativo (modo -small) ---`), incluyendo conteo `EH factibles: X/13`.
 
 Si OR-Tools no está instalado (`python -m pip install --user -r requirements.txt`), EH-SA/TS igual corre; la columna Gap muestra `---` y el resumen indica la instalación faltante.
+
+### Gráficos (`stats/`)
+
+Tras cada ejecución, si `matplotlib` está instalado (`requirements.txt`), se generan **archivos PNG** bajo `stats/` en subcarpetas, con el **mismo prefijo** que el log (ej. `logs/run_003_small.txt` → `stats/small/run_003_small_bars.png`).
+
+| Subcarpeta      | Modos que escriben ahí                                                                | Archivos típicos                                                             |
+| --------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `stats/small/`  | `-small`, `-all` (bloque pequeñas), `single`                                          | `*_bars.png`, `*_gaps.png`, `*_map_<instancia>.png` (EH vs OR-Tools)         |
+| `stats/large/`  | `-large`, `-all` (bloque grandes)                                                     | `*_rpd_bars.png`, `*_energy_bars.png`, `*_map_<instancia>.png` (ruta EH B\*) |
+| `stats/extras/` | `recharge-stations`, `battery-reserve`, `energy-vs-distance`, `-all` (esos 3 bloques) | `*_recharge_bars.png`, `*_battery_bars.png`, `*_evd_*.png`                   |
+
+En `-small` se genera un mapa por cada instancia del benchmark (`C12R2` … `C24R2`), con EH y OR-Tools superpuestos. En `-large` se genera un mapa por cada instancia del banco grande (~40), mostrando solo la **mejor corrida EH-SA/TS (B\*)**.
+
+Leyenda en mapas: depósito (cuadrado rojo), estaciones (triángulo verde), clientes (círculo azul); OR-Tools línea sólida morada, EH-SA/TS línea discontinua naranja.
 
 ### Instancias grandes (`-large`)
 

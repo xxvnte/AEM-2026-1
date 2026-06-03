@@ -23,6 +23,18 @@ except ImportError:
 
 INSTANCES_DIR = Path(__file__).parent / "instances"
 LOGS_DIR = Path(__file__).parent / "logs"
+STATS_DIR = Path(__file__).parent / "stats"
+
+try:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    plt = None
+    MATPLOTLIB_AVAILABLE = False
 
 ALPHA_ARC = 0.0981
 BETA_VEH = 2.11
@@ -309,15 +321,47 @@ def arc_energy_kwh(arcs: dict, i: int, j: int, load_kg: float) -> float:
     return arc.energy_kwh_empty + e_load
 
 
+def _extract_mip_routes(
+    x: dict,
+    all_nodes: list[int],
+    depot_start_idx: int,
+    depot_end_idx: int,
+) -> list[list[int]]:
+    remaining = {
+        (i_idx, j_idx)
+        for (i_idx, j_idx), var in x.items()
+        if var.solution_value() > 0.5
+    }
+    routes: list[list[int]] = []
+    while remaining:
+        path_idx = [depot_start_idx]
+        cur = depot_start_idx
+        stuck = False
+        while cur != depot_end_idx:
+            next_candidates = [j for (i, j) in remaining if i == cur]
+            if not next_candidates:
+                stuck = True
+                break
+            nxt = next_candidates[0]
+            remaining.discard((cur, nxt))
+            path_idx.append(nxt)
+            cur = nxt
+        if len(path_idx) >= 2:
+            routes.append([all_nodes[i] for i in path_idx])
+        if stuck or path_idx[-1] != depot_end_idx:
+            break
+    return routes
+
+
 def solve_mip_ortools(
     vertices: list[Vertex],
     arcs: dict[tuple[int, int], Arc],
     time_limit_s: float = MIP_TIME_LIMIT_DEFAULT,
     max_station_copies: int = 3,
-) -> tuple[float, str]:
+) -> tuple[float, str, list[list[int]]]:
     """MIP de energía (resuelto con OR-Tools)."""
     if not ORTOOLS_AVAILABLE:
-        return float("inf"), "OR-Tools no instalado (pip install ortools)"
+        return float("inf"), "OR-Tools no instalado (pip install ortools)", []
 
     vmap = {v.idx: v for v in vertices}
     depot_idxs = [v.idx for v in vertices if v.is_depot]
@@ -346,7 +390,7 @@ def solve_mip_ortools(
 
     solver = pywraplp.Solver.CreateSolver("SCIP") or pywraplp.Solver.CreateSolver("CBC")
     if solver is None:
-        return float("inf"), "Sin solver MIP disponible"
+        return float("inf"), "Sin solver MIP disponible", []
     solver.SetTimeLimit(int(time_limit_s * 1000))
 
     x = {
@@ -432,8 +476,9 @@ def solve_mip_ortools(
     status_str = status_map.get(status, "DESCONOCIDO")
 
     if status in (pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE):
-        return solver.Objective().Value(), status_str
-    return float("inf"), status_str
+        routes = _extract_mip_routes(x, all_nodes, depot_start_idx, depot_end_idx)
+        return solver.Objective().Value(), status_str, routes
+    return float("inf"), status_str, []
 
 
 def arc_dist(arcs: dict, i: int, j: int) -> float:
@@ -539,6 +584,168 @@ def evaluate_route_strict(
             batt_viol += reserve_kwh - batt
             batt = reserve_kwh
     return total_e, batt_viol
+
+
+def battery_after_route_prefix(
+    seq: list[int],
+    vertices: dict[int, Vertex],
+    arcs: dict,
+    reserve_pct: float = 0.0,
+    client_seq: list[int] | None = None,
+) -> float:
+    """Batería al final de seq bajo las mismas reglas que evaluate_route_strict."""
+    if len(seq) < 2:
+        return BATTERY_CAPACITY_KWH
+    if client_seq is None:
+        client_seq = seq
+    reserve_kwh = battery_reserve_kwh(reserve_pct)
+    load_kg = route_total_load_kg(client_seq, vertices)
+    batt = BATTERY_CAPACITY_KWH
+    for step in range(len(seq) - 1):
+        i, j = seq[step], seq[step + 1]
+        if vertices[i].is_customer:
+            load_kg -= vertices[i].demand_tons * 1000.0
+        e = arc_energy_kwh(arcs, i, j, max(0.0, load_kg))
+        if batt + 1e-9 < e:
+            batt = 0.0
+        else:
+            batt -= e
+        if is_charge_node(vertices[j]):
+            batt = BATTERY_CAPACITY_KWH
+        elif batt + 1e-9 < reserve_kwh:
+            batt = reserve_kwh
+    return batt
+
+
+def strict_segment_violation_kwh(
+    seg_path: list[int],
+    load_kg: float,
+    start_batt: float,
+    vertices: dict[int, Vertex],
+    arcs: dict,
+    reserve_pct: float = 0.0,
+) -> tuple[float, float]:
+    """Violación de batería y batería final al recorrer seg_path desde start_batt."""
+    if len(seg_path) < 2:
+        return 0.0, start_batt
+    reserve_kwh = battery_reserve_kwh(reserve_pct)
+    load = load_kg
+    batt = start_batt
+    viol = 0.0
+    for step in range(len(seg_path) - 1):
+        i, j = seg_path[step], seg_path[step + 1]
+        if vertices[i].is_customer:
+            load -= vertices[i].demand_tons * 1000.0
+        e = arc_energy_kwh(arcs, i, j, max(0.0, load))
+        if batt + 1e-9 < e:
+            viol += e - batt
+            batt = 0.0
+        else:
+            batt -= e
+        if is_charge_node(vertices[j]):
+            batt = BATTERY_CAPACITY_KWH
+        elif batt + 1e-9 < reserve_kwh:
+            viol += reserve_kwh - batt
+            batt = reserve_kwh
+    return viol, batt
+
+
+def repair_route_battery(
+    seq: list[int],
+    vertices: dict[int, Vertex],
+    arcs: dict,
+    station_idxs: list[int],
+    depot_idxs: list[int],
+    reserve_pct: float = 0.0,
+    max_passes: int = 64,
+) -> list[int]:
+    """Inserta recargas en la primera violación estricta detectada."""
+    if len(seq) < 2:
+        return list(seq)
+    route = list(seq)
+    all_charge = list(dict.fromkeys(station_idxs + depot_idxs))
+    reserve_kwh = battery_reserve_kwh(reserve_pct)
+
+    for _ in range(max_passes):
+        _, viol = evaluate_route_strict(route, vertices, arcs, reserve_pct)
+        if viol <= 1e-6:
+            return route
+
+        load_kg = route_total_load_kg(route, vertices)
+        batt = BATTERY_CAPACITY_KWH
+        fixed = False
+        for step in range(len(route) - 1):
+            i, j = route[step], route[step + 1]
+            if vertices[i].is_customer:
+                load_kg -= vertices[i].demand_tons * 1000.0
+            e = arc_energy_kwh(arcs, i, j, max(0.0, load_kg))
+            need = e if batt + 1e-9 < e else 0.0
+            if need <= 1e-9:
+                batt -= e
+                if is_charge_node(vertices[j]):
+                    batt = BATTERY_CAPACITY_KWH
+                elif batt + 1e-9 < reserve_kwh:
+                    need = reserve_kwh - batt
+            if need <= 1e-9:
+                continue
+
+            load_before = load_kg
+            repl = _charge_detour_to(
+                i, j, load_before, batt, vertices, arcs, all_charge, reserve_kwh
+            )
+            if repl is None:
+                via = _two_hop_via_charge_nodes(
+                    i,
+                    j,
+                    load_before,
+                    batt,
+                    vertices,
+                    arcs,
+                    all_charge,
+                    reserve_kwh,
+                    min_end_batt=0.0,
+                )
+                if via is not None:
+                    repl = (0.0, [i] + via[0], via[1])
+            if repl is None:
+                e_dep, p_dep, b_dep = min_energy_path(
+                    i,
+                    depot_idxs[0],
+                    load_before,
+                    batt,
+                    vertices,
+                    arcs,
+                    all_charge,
+                    0.0,
+                    reserve_kwh,
+                )
+                if e_dep < 1e17:
+                    e_fwd, p_fwd, _ = min_energy_path(
+                        depot_idxs[0],
+                        j,
+                        load_before,
+                        b_dep,
+                        vertices,
+                        arcs,
+                        all_charge,
+                        0.0,
+                        reserve_kwh,
+                    )
+                    if e_fwd < 1e17:
+                        repl = (e_dep + e_fwd, p_dep + p_fwd[1:], 0.0)
+            if repl is None:
+                batt = max(0.0, batt - e)
+                if is_charge_node(vertices[j]):
+                    batt = BATTERY_CAPACITY_KWH
+                continue
+
+            _, path, _ = repl
+            route = route[: step + 1] + path[1:] + route[step + 2 :]
+            fixed = True
+            break
+        if not fixed:
+            break
+    return route
 
 
 def validate_solution(
@@ -772,7 +979,7 @@ def _segment_path_search_core(
     charge_nodes: list[int],
     min_end_batt: float,
     reserve_kwh: float,
-) -> list[tuple[float, float, list[int]]]:
+) -> list[tuple[float, list[int], float]]:
     if from_i == to_j:
         need = (
             max(min_end_batt, reserve_kwh)
@@ -780,7 +987,7 @@ def _segment_path_search_core(
             else 0.0
         )
         if start_batt + 1e-9 >= need:
-            return [(0.0, start_batt, [from_i])]
+            return _pareto_segment_arrivals([(0.0, start_batt, [from_i])])
         return []
 
     allowed = set(charge_nodes) | {from_i, to_j}
@@ -1005,9 +1212,12 @@ def greedy_station_insert_route(
     station_idxs: list[int],
     depot_idxs: list[int],
     reserve_pct: float = 0.0,
+    _depth: int = 0,
 ) -> list[int]:
     """Paper §4.1.1 step 3: insert stations when battery cannot reach next customer."""
     if len(client_seq) < 2:
+        return list(client_seq)
+    if _depth > 12:
         return list(client_seq)
     reserve_kwh = battery_reserve_kwh(reserve_pct)
     charge_nodes = charge_nodes_for_segment(client_seq[-1], station_idxs, depot_idxs)
@@ -1015,19 +1225,60 @@ def greedy_station_insert_route(
     full = [client_seq[0]]
     batt = BATTERY_CAPACITY_KWH
     cust_idx = 0
+    depot_resets = 0
+    max_depot_resets = max(32, len(client_seq) * 4)
 
     def advance_to_next(next_cust: int, seg_path: list[int], end_batt: float) -> bool:
         nonlocal full, batt, cust_idx
-        full.extend(seg_path[1:])
+        if not isinstance(seg_path, list) or len(seg_path) < 2:
+            return False
+        if seg_path[-1] != next_cust:
+            return False
+        if seg_path[0] == full[-1]:
+            full.extend(seg_path[1:])
+        elif seg_path[0] in (full[-1], depot_idxs[0]):
+            full.extend(seg_path[1:] if seg_path[0] == full[-1] else seg_path)
+        else:
+            return False
         batt = end_batt
         if full[-1] != next_cust:
             return False
         cust_idx += 1
         return True
 
+    def try_return_to_depot() -> bool:
+        nonlocal full, batt, depot_resets
+        depot_start = depot_idxs[0]
+        if full[-1] == depot_start:
+            batt = BATTERY_CAPACITY_KWH
+            return True
+        load = load_leaving_position(client_seq, cust_idx, vertices)
+        e, path, return_batt = min_energy_path(
+            full[-1],
+            depot_start,
+            load,
+            batt,
+            vertices,
+            arcs,
+            all_charge_nodes,
+            reserve_kwh=reserve_kwh,
+        )
+        if e >= 1e17 or not path:
+            return False
+        full.extend(path[1:])
+        batt = (
+            BATTERY_CAPACITY_KWH
+            if is_charge_node(vertices[depot_start])
+            else return_batt
+        )
+        depot_resets += 1
+        return True
+
     def finish_via_depot_suffix() -> list[int]:
         depot_start = depot_idxs[0]
         suffix_seq = [depot_start] + client_seq[cust_idx + 1 :]
+        if len(suffix_seq) < 2:
+            return full
         tail = greedy_station_insert_route(
             suffix_seq,
             vertices,
@@ -1035,6 +1286,7 @@ def greedy_station_insert_route(
             station_idxs,
             depot_idxs,
             reserve_pct,
+            _depth=_depth + 1,
         )
         full.extend(tail[1:])
         return full
@@ -1065,8 +1317,14 @@ def greedy_station_insert_route(
             reserve_kwh=reserve_kwh,
         )
         if segment_options:
-            seg_e, seg_path, end_batt = min(segment_options, key=lambda item: item[0])
-            if advance_to_next(next_cust, seg_path, end_batt):
+            advanced = False
+            for seg_e, seg_path, end_batt in sorted(
+                segment_options, key=lambda item: item[0]
+            ):
+                if advance_to_next(next_cust, seg_path, end_batt):
+                    advanced = True
+                    break
+            if advanced:
                 continue
 
         via_charge = _two_hop_via_charge_nodes(
@@ -1156,8 +1414,38 @@ def greedy_station_insert_route(
             reserve_kwh=reserve_kwh,
         )
         if relaxed:
-            seg_e, seg_path, end_batt = min(relaxed, key=lambda item: item[0])
-            if advance_to_next(next_cust, seg_path, end_batt):
+            advanced = False
+            for seg_e, seg_path, end_batt in sorted(relaxed, key=lambda item: item[0]):
+                if advance_to_next(next_cust, seg_path, end_batt):
+                    advanced = True
+                    break
+            if advanced:
+                continue
+
+        if depot_resets < max_depot_resets and try_return_to_depot():
+            continue
+
+        e_force, path_force, b_force = min_energy_path(
+            current,
+            next_cust,
+            load,
+            batt,
+            vertices,
+            arcs,
+            all_charge_nodes,
+            min_end_batt=0.0,
+            reserve_kwh=reserve_kwh,
+        )
+        if e_force < 1e17 and advance_to_next(next_cust, path_force, b_force):
+            continue
+        if e_force < 1e17:
+            if path_force[0] == full[-1]:
+                full.extend(path_force[1:])
+            else:
+                full.extend(path_force)
+            batt = b_force
+            if full[-1] == next_cust:
+                cust_idx += 1
                 continue
 
         return finish_via_depot_suffix()
@@ -1635,6 +1923,9 @@ def build_routes_with_dp(
             inserted = greedy_station_insert_route(
                 route, vertices, arcs, station_idxs, depot_idxs, reserve_pct
             )
+        inserted = repair_route_battery(
+            inserted, vertices, arcs, station_idxs, depot_idxs, reserve_pct
+        )
         full_routes.append(inserted)
     return full_routes
 
@@ -1960,6 +2251,7 @@ def _run_eh_on_instance(
         energy=round(energy, 2) if math.isfinite(energy) else None,
         fgen=round(fgen, 2),
         routes=len(routes),
+        eh_paths=[list(r) for r in routes],
         station_visits=count_station_visits(routes, vmap),
         time_s=round(t_s, 2),
         feasible=validation["feasible"],
@@ -2053,13 +2345,13 @@ def run_small_benchmark(
         vertices, arcs = load_instance(name)
 
         t0 = time.time()
-        mip_e, mip_status = solve_mip_ortools(
+        mip_e, mip_status, mip_routes = solve_mip_ortools(
             vertices, arcs, time_limit_s=mip_time_limit_s
         )
         t_mip = time.time() - t0
 
         t0 = time.time()
-        _, eh_e, _, eh_validation = run_eh_sats(
+        eh_routes, eh_e, _, eh_validation = run_eh_sats(
             vertices,
             arcs,
             seed=seed,
@@ -2090,6 +2382,8 @@ def run_small_benchmark(
             eh_missing_customers=len(eh_validation["missing_customers"]),
             eh_battery_violation=round(eh_validation["battery_violation_kwh"], 4),
         )
+        row["eh_routes"] = [list(r) for r in eh_routes]
+        row["mip_routes"] = [list(r) for r in mip_routes]
         results.append(row)
         print(
             f"{name:<10} {mip_str:>10} {t_mip:>6.1f}s {mip_status:>18} "
@@ -2160,46 +2454,77 @@ def run_large_multi_run(
     for name in LARGE_INSTANCES:
         energies: list[float] = []
         times: list[float] = []
+        best_eh_paths: list[list[int]] | None = None
+        best_energy_so_far = float("inf")
         for run_seed in seeds:
             row = _run_eh_on_instance(name, run_seed)
             energies.append(row["energy"])
             times.append(row["time_s"])
+            e_run = row["energy"]
+            if e_run is not None and e_run < best_energy_so_far:
+                best_energy_so_far = e_run
+                best_eh_paths = row.get("eh_paths")
 
-        best = min(energies)
-        mean_e = statistics.mean(energies)
-        std_e = statistics.stdev(energies) if len(energies) > 1 else 0.0
-        rpds = [absolute_gap(e, best) for e in energies]
-        mean_rpd = statistics.mean(rpds)
-        max_rpd = max(rpds)
+        finite_energies = [e for e in energies if e is not None and math.isfinite(e)]
         total_t = sum(times)
-
-        summary.append(
-            dict(
-                instance=name,
-                seeds=seeds,
-                energies=energies,
-                best=round(best, 2),
-                mean=round(mean_e, 2),
-                std=round(std_e, 2),
-                mean_rpd=round(mean_rpd, 2),
-                max_rpd=round(max_rpd, 2),
-                total_time_s=round(total_t, 2),
+        if finite_energies:
+            best = min(finite_energies)
+            mean_e = statistics.mean(finite_energies)
+            std_e = (
+                statistics.stdev(finite_energies) if len(finite_energies) > 1 else 0.0
             )
+            rpds = [absolute_gap(e, best) for e in finite_energies]
+            mean_rpd = statistics.mean(rpds)
+            max_rpd = max(rpds)
+            best_disp = f"{best:>10.2f}"
+            mean_disp = f"{mean_e:>10.2f}"
+            std_disp = f"{std_e:>8.2f}"
+            rpd_mean_disp = f"{mean_rpd:>9.2f}%"
+            rpd_max_disp = f"{max_rpd:>8.2f}%"
+        else:
+            best = mean_e = std_e = mean_rpd = max_rpd = float("nan")
+            rpds = []
+            best_disp = f"{'INFACT':>10}"
+            mean_disp = f"{'N/A':>10}"
+            std_disp = f"{'N/A':>8}"
+            rpd_mean_disp = f"{'N/A':>10}"
+            rpd_max_disp = f"{'N/A':>9}"
+
+        entry = dict(
+            instance=name,
+            seeds=seeds,
+            energies=energies,
+            best=round(best, 2) if finite_energies else None,
+            mean=round(mean_e, 2) if finite_energies else None,
+            std=round(std_e, 2) if finite_energies else None,
+            mean_rpd=round(mean_rpd, 2) if finite_energies else None,
+            max_rpd=round(max_rpd, 2) if finite_energies else None,
+            total_time_s=round(total_t, 2),
+            all_infeasible=not finite_energies,
         )
+        if best_eh_paths is not None:
+            entry["eh_routes"] = best_eh_paths
+        summary.append(entry)
         print(
-            f"{name:<14} {best:>10.2f} {mean_e:>10.2f} {std_e:>8.2f} "
-            f"{mean_rpd:>9.2f}% {max_rpd:>8.2f}% {total_t:>7.1f}s"
+            f"{name:<14} {best_disp} {mean_disp} {std_disp} "
+            f"{rpd_mean_disp} {rpd_max_disp} {total_t:>7.1f}s"
         )
-        run_detail = "  ".join(f"R{j+1}={e:.1f}" for j, e in enumerate(energies))
-        rpd_detail = "  ".join(f"{r:.1f}%" for r in rpds)
+        run_detail = "  ".join(
+            f"R{j+1}={e:.1f}" if e is not None else f"R{j+1}=INF"
+            for j, e in enumerate(energies)
+        )
+        rpd_detail = (
+            "  ".join(f"{r:.1f}%" for r in rpds) if rpds else "N/A (sin runs factibles)"
+        )
         print(f"  Energias: {run_detail}")
         print(f"  RPD:      {rpd_detail}")
 
-    if summary:
-        avg_best = statistics.mean(s["best"] for s in summary)
-        avg_mean = statistics.mean(s["mean"] for s in summary)
-        avg_std = statistics.mean(s["std"] for s in summary)
-        avg_rpd = statistics.mean(s["mean_rpd"] for s in summary)
+    feasible_summary = [s for s in summary if not s.get("all_infeasible")]
+    if feasible_summary:
+        avg_best = statistics.mean(s["best"] for s in feasible_summary)
+        avg_mean = statistics.mean(s["mean"] for s in feasible_summary)
+        avg_std = statistics.mean(s["std"] for s in feasible_summary)
+        avg_rpd = statistics.mean(s["mean_rpd"] for s in feasible_summary)
         print("-" * 105)
         print(
             f"{'Promedio':<14} {avg_best:>10.2f} {avg_mean:>10.2f} {avg_std:>8.2f} "
@@ -2208,10 +2533,13 @@ def run_large_multi_run(
 
     print("\n--- Resumen comparativo (modo -large) ---")
     for s in summary:
-        print(
-            f"  {s['instance']}: B*={s['best']:.2f} Media={s['mean']:.2f} "
-            f"Std={s['std']:.2f} RPD_media={s['mean_rpd']:.2f}%"
-        )
+        if s.get("all_infeasible"):
+            print(f"  {s['instance']}: INFACTIBLE en todos los runs")
+        else:
+            print(
+                f"  {s['instance']}: B*={s['best']:.2f} Media={s['mean']:.2f} "
+                f"Std={s['std']:.2f} RPD_media={s['mean_rpd']:.2f}%"
+            )
 
     return summary
 
@@ -2320,6 +2648,422 @@ def run_energy_vs_distance(seed=42):
     return results
 
 
+def stats_png_path(prefix: str, suffix: str, category: str) -> Path:
+    """category: 'small' | 'large' | 'extras' → stats/<category>/"""
+    subdir = STATS_DIR / category
+    subdir.mkdir(parents=True, exist_ok=True)
+    return subdir / f"{prefix}_{suffix}.png"
+
+
+def _draw_nodes(ax, vertices: list[Vertex]) -> None:
+    legend_depot = legend_station = legend_customer = True
+    for v in vertices:
+        if v.is_depot:
+            ax.scatter(
+                v.x,
+                v.y,
+                marker="s",
+                s=120,
+                c="#d62728",
+                edgecolors="black",
+                linewidths=0.6,
+                zorder=5,
+                label="Depósito" if legend_depot else None,
+            )
+            legend_depot = False
+        elif v.is_station:
+            ax.scatter(
+                v.x,
+                v.y,
+                marker="^",
+                s=90,
+                c="#2ca02c",
+                edgecolors="black",
+                linewidths=0.5,
+                zorder=4,
+                label="Estaciones" if legend_station else None,
+            )
+            legend_station = False
+        else:
+            ax.scatter(
+                v.x,
+                v.y,
+                marker="o",
+                s=45,
+                c="#1f77b4",
+                edgecolors="white",
+                linewidths=0.4,
+                zorder=3,
+                label="Clientes" if legend_customer else None,
+            )
+            legend_customer = False
+
+
+def _draw_routes_on_ax(
+    ax,
+    vertices: list[Vertex],
+    routes: list[list[int]],
+    *,
+    color: str,
+    linestyle: str,
+    linewidth: float,
+    alpha: float,
+    label: str,
+) -> None:
+    vmap = {v.idx: v for v in vertices}
+    drawn_label = False
+    for route in routes:
+        if len(route) < 2:
+            continue
+        xs = [vmap[n].x for n in route if n in vmap]
+        ys = [vmap[n].y for n in route if n in vmap]
+        if len(xs) < 2:
+            continue
+        ax.plot(
+            xs,
+            ys,
+            color=color,
+            linestyle=linestyle,
+            linewidth=linewidth,
+            alpha=alpha,
+            label=label if not drawn_label else None,
+            zorder=2,
+        )
+        drawn_label = True
+
+
+def _save_route_comparison_map(
+    prefix: str,
+    instance: str,
+    vertices: list[Vertex],
+    eh_routes: list[list[int]],
+    ref_routes: list[list[int]] | None,
+    *,
+    category: str = "small",
+    ref_label: str = "OR-Tools",
+    eh_label: str = "EH-SA/TS",
+    eh_energy: float | None = None,
+    ref_energy: float | None = None,
+) -> Path | None:
+    if not MATPLOTLIB_AVAILABLE:
+        return None
+    fig, ax = plt.subplots(figsize=(10, 8))
+    _draw_nodes(ax, vertices)
+    if ref_routes:
+        _draw_routes_on_ax(
+            ax,
+            vertices,
+            ref_routes,
+            color="#9467bd",
+            linestyle="-",
+            linewidth=2.0,
+            alpha=0.85,
+            label=ref_label,
+        )
+    _draw_routes_on_ax(
+        ax,
+        vertices,
+        eh_routes,
+        color="#ff7f0e",
+        linestyle="--",
+        linewidth=2.0,
+        alpha=0.9,
+        label=eh_label,
+    )
+    title = f"Rutas {instance}"
+    if eh_energy is not None and ref_energy is not None:
+        title += (
+            f"\n{ref_label}: {ref_energy:.1f} kWh | {eh_label}: {eh_energy:.1f} kWh"
+        )
+    elif eh_energy is not None:
+        title += f"\n{eh_label}: {eh_energy:.1f} kWh"
+    ax.set_title(title)
+    ax.set_xlabel("X (millas)")
+    ax.set_ylabel("Y (millas)")
+    ax.grid(True, alpha=0.25)
+    ax.set_aspect("equal", adjustable="box")
+    handles, labels = ax.get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    legend_order = [
+        "Depósito",
+        "Estaciones",
+        "Clientes",
+        ref_label,
+        eh_label,
+    ]
+    ordered_handles = [by_label[key] for key in legend_order if key in by_label]
+    ordered_labels = [key for key in legend_order if key in by_label]
+    ax.legend(
+        ordered_handles,
+        ordered_labels,
+        loc="lower left",
+        fontsize=9,
+        framealpha=0.92,
+    )
+    fig.tight_layout()
+    out = stats_png_path(prefix, f"map_{instance}", category)
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
+def _save_bar_chart(
+    prefix: str,
+    suffix: str,
+    labels: list[str],
+    series: dict[str, list[float]],
+    *,
+    category: str,
+    title: str,
+    ylabel: str,
+    rotate: int = 45,
+) -> Path | None:
+    if not MATPLOTLIB_AVAILABLE or not labels:
+        return None
+    fig, ax = plt.subplots(figsize=(max(8, len(labels) * 0.45), 6))
+    x = range(len(labels))
+    n_series = len(series)
+    width = 0.8 / max(n_series, 1)
+    for i, (name, values) in enumerate(series.items()):
+        offset = (i - (n_series - 1) / 2) * width
+        ax.bar(
+            [xi + offset for xi in x],
+            values,
+            width=width,
+            label=name,
+            alpha=0.9,
+        )
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(labels, rotation=rotate, ha="right", fontsize=8)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.legend()
+    ax.grid(True, axis="y", alpha=0.3)
+    fig.tight_layout()
+    out = stats_png_path(prefix, suffix, category)
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
+def generate_visual_reports(
+    prefix: str,
+    mode: str,
+    results: dict,
+    *,
+    seed: int = 42,
+    single_name: str | None = None,
+) -> list[Path]:
+    """Genera gráficos PNG en stats/ sincronizados con el prefijo del log (run_NNN_modo)."""
+    if not MATPLOTLIB_AVAILABLE:
+        print(
+            "\n[stats] matplotlib no instalado; omitiendo gráficos "
+            "(pip install matplotlib)."
+        )
+        return []
+
+    saved: list[Path] = []
+    STATS_DIR.mkdir(parents=True, exist_ok=True)
+
+    def add(path: Path | None) -> None:
+        if path is not None:
+            saved.append(path)
+
+    small_rows = results.get("small")
+    if small_rows and mode in ("small", "all"):
+        gap_rows = [r for r in small_rows if r.get("gap_pct") is not None]
+        if gap_rows:
+            labels = [r["instance"] for r in gap_rows]
+            add(
+                _save_bar_chart(
+                    prefix,
+                    "bars",
+                    labels,
+                    {
+                        "OR-Tools (kWh)": [r["mip_energy"] for r in gap_rows],
+                        "EH-SA/TS (kWh)": [r["eh_energy"] for r in gap_rows],
+                    },
+                    category="small",
+                    title="Pequeñas: energía OR-Tools vs EH-SA/TS",
+                    ylabel="Energía (kWh)",
+                )
+            )
+            add(
+                _save_bar_chart(
+                    prefix,
+                    "gaps",
+                    labels,
+                    {"Gap % (EH)": [r["gap_pct"] for r in gap_rows]},
+                    category="small",
+                    title="Pequeñas: Absolute Gap EH-SA/TS vs OR-Tools",
+                    ylabel="Gap (%)",
+                )
+            )
+        for row in small_rows:
+            inst = row["instance"]
+            if not row.get("eh_routes"):
+                continue
+            vertices, _ = load_instance(inst)
+            add(
+                _save_route_comparison_map(
+                    prefix,
+                    inst,
+                    vertices,
+                    row["eh_routes"],
+                    row.get("mip_routes"),
+                    category="small",
+                    eh_energy=row.get("eh_energy"),
+                    ref_energy=row.get("mip_energy"),
+                )
+            )
+
+    large_rows = results.get("large")
+    if large_rows and mode in ("large", "all"):
+        labels = [s["instance"] for s in large_rows]
+        add(
+            _save_bar_chart(
+                prefix,
+                "rpd_bars",
+                labels,
+                {"RPD medio %": [s["mean_rpd"] for s in large_rows]},
+                category="large",
+                title="Grandes: RPD medio por instancia (vs B*)",
+                ylabel="RPD (%)",
+                rotate=90,
+            )
+        )
+        add(
+            _save_bar_chart(
+                prefix,
+                "energy_bars",
+                labels,
+                {
+                    "B* (kWh)": [s["best"] for s in large_rows],
+                    "Media (kWh)": [s["mean"] for s in large_rows],
+                },
+                category="large",
+                title="Grandes: mejor y energía media EH-SA/TS",
+                ylabel="Energía (kWh)",
+                rotate=90,
+            )
+        )
+        for row in large_rows:
+            inst = row["instance"]
+            if not row.get("eh_routes"):
+                continue
+            vertices, _ = load_instance(inst)
+            add(
+                _save_route_comparison_map(
+                    prefix,
+                    inst,
+                    vertices,
+                    row["eh_routes"],
+                    None,
+                    category="large",
+                    eh_label="EH-SA/TS (B*)",
+                    eh_energy=row.get("best"),
+                )
+            )
+
+    recharge = results.get("recharge_stations")
+    if recharge and mode in ("recharge-stations", "all"):
+        add(
+            _save_bar_chart(
+                prefix,
+                "recharge_bars",
+                [r["group"] for r in recharge],
+                {
+                    "Energía media (kWh)": [r["energy"] for r in recharge],
+                    "Visitas estación": [r["visits"] for r in recharge],
+                },
+                category="extras",
+                title="Efecto del número de estaciones (R2–R8)",
+                ylabel="Valor medio",
+                rotate=0,
+            )
+        )
+
+    battery = results.get("battery_reserve")
+    if battery and mode in ("battery-reserve", "all"):
+        add(
+            _save_bar_chart(
+                prefix,
+                "battery_bars",
+                [r["threshold"] for r in battery],
+                {
+                    "Energía media (kWh)": [r["energy"] for r in battery],
+                    "Visitas estación": [r["visits"] for r in battery],
+                },
+                category="extras",
+                title="Reserva mínima de batería (EH-SA/TS)",
+                ylabel="Valor medio",
+                rotate=0,
+            )
+        )
+
+    evd = results.get("energy_vs_distance")
+    if evd and mode in ("energy-vs-distance", "all"):
+        labels = [r["instance"] for r in evd]
+        add(
+            _save_bar_chart(
+                prefix,
+                "evd_bars",
+                labels,
+                {
+                    "E_min (kWh)": [r["energy_min"] for r in evd],
+                    "E_dist (kWh)": [r["energy_dist"] for r in evd],
+                },
+                category="extras",
+                title="Energía vs distancia por instancia",
+                ylabel="Energía (kWh)",
+                rotate=90,
+            )
+        )
+        add(
+            _save_bar_chart(
+                prefix,
+                "evd_pct",
+                labels,
+                {"% inc. energía": [r["pct_inc"] for r in evd]},
+                category="extras",
+                title="Incremento % al minimizar distancia",
+                ylabel="%",
+                rotate=90,
+            )
+        )
+
+    if mode == "single" and single_name:
+        row = results.get("single")
+        if row and row.get("eh_paths"):
+            vertices, arcs = load_instance(single_name)
+            mip_routes: list[list[int]] = []
+            ref_e = None
+            if ORTOOLS_AVAILABLE and _instance_path(single_name).parent.name == "small":
+                mip_e, _, mip_routes = solve_mip_ortools(vertices, arcs)
+                ref_e = mip_e if mip_e < 1e17 else None
+            add(
+                _save_route_comparison_map(
+                    prefix,
+                    single_name,
+                    vertices,
+                    row["eh_paths"],
+                    mip_routes or None,
+                    category="small",
+                    eh_energy=row.get("energy"),
+                    ref_energy=ref_e,
+                )
+            )
+
+    if saved:
+        print(
+            f"\n[stats] {len(saved)} gráfico(s) PNG (prefijo {prefix}) en "
+            f"{STATS_DIR}/small|large|extras/"
+        )
+        for path in saved:
+            print(f"  - {path.name}")
+    return saved
+
+
 class _TeeWriter:
     def __init__(self, *streams):
         self._streams = streams
@@ -2423,12 +3167,13 @@ def _execute_mode(
     single_name: str | None,
     num_runs: int = LARGE_NUM_RUNS_DEFAULT,
     mip_time_limit_s: float = MIP_TIME_LIMIT_DEFAULT,
-) -> None:
+) -> dict:
     print("=" * 70)
     print("EH-SA/TS - Enhanced Hybrid Simulated Annealing / Tabu Search")
     print("EVRP - Electric Vehicle Routing Problem")
     print("=" * 70)
     print(f"Modo: {mode} | Semilla base: {seed}")
+    collected: dict = {"mode": mode, "seed": seed}
 
     if mode == "all":
         print("\nPipeline -all:")
@@ -2441,9 +3186,10 @@ def _execute_mode(
     if mode == "single":
         if single_name is None:
             print("Error: especifique el nombre. Ej: python main.py single C25R2-1")
-            return
+            return collected
         print(f"\nEjecutando instancia: {single_name}")
         row = _run_eh_on_instance(single_name, seed)
+        collected["single"] = row
         if row["feasible"] and row["energy"] is not None:
             print(f"Energía EH-SA/TS: {row['energy']:.4f} kWh")
         else:
@@ -2455,23 +3201,26 @@ def _execute_mode(
         print(f"Rutas:            {row['routes']}")
         print(f"Visitas estación: {row['station_visits']}")
         print("\n Experimento completado :D")
-        return
+        return collected
 
     if mode in ("all", "small"):
-        run_small_benchmark(seed=seed, mip_time_limit_s=mip_time_limit_s)
+        collected["small"] = run_small_benchmark(
+            seed=seed, mip_time_limit_s=mip_time_limit_s
+        )
     if mode in ("all", "large"):
-        run_large_multi_run(base_seed=seed, num_runs=num_runs)
+        collected["large"] = run_large_multi_run(base_seed=seed, num_runs=num_runs)
     if mode == "extended":
-        run_extended_small(seed)
+        collected["extended"] = run_extended_small(seed)
     if mode == "bank":
-        run_own_bank(seed)
+        collected["bank"] = run_own_bank(seed)
     if mode in ("all", "recharge-stations"):
-        run_recharge_stations(seed)
+        collected["recharge_stations"] = run_recharge_stations(seed)
     if mode in ("all", "battery-reserve"):
-        run_battery_reserve(seed)
+        collected["battery_reserve"] = run_battery_reserve(seed)
     if mode in ("all", "energy-vs-distance"):
-        run_energy_vs_distance(seed)
+        collected["energy_vs_distance"] = run_energy_vs_distance(seed)
     print("\n Experimento completado :D")
+    return collected
 
 
 def main():
@@ -2506,8 +3255,9 @@ def main():
 
     slug = log_mode_slug(mode, single_name)
     log_path = next_run_log_path(slug)
+    prefix = log_path.stem
     with capture_run_log(log_path):
-        _execute_mode(
+        run_results = _execute_mode(
             mode,
             seed,
             single_name,
@@ -2515,6 +3265,13 @@ def main():
             mip_time_limit_s=mip_time_limit_s,
         )
     print(f"\nLog guardado en: {log_path}")
+    generate_visual_reports(
+        prefix,
+        mode,
+        run_results,
+        seed=seed,
+        single_name=single_name,
+    )
 
 
 if __name__ == "__main__":
