@@ -4,47 +4,43 @@ EVRP - Electric Vehicle Routing Problem
 ======================================================================
 Modo: small | Semilla base: 42
 
-====================================================================================================
+================================================================================
 MODO -small | INSTANCIAS PEQUEÑAS (C12R2-C24R2)
-Comparación EH-SA/TS vs solver OR-Tools (modelo MIP)
-====================================================================================================
-Métricas:
-  ref     = energía OR-Tools (límite de optimalidad / factible)
-  Absolute Gap (EH) = (E_EH - ref) / ref x 100%
-  Límite OR-Tools: 300 s por instancia | Semilla EH: 42
-Inst         OR-Tools    t_OT             Estado   EH-SA/TS   t_EH    Gap %
-----------------------------------------------------------------------------------------------------
-C12R2          226.42    8.9s             OPTIMO     433.88   0.7s   91.62%
-C13R2          263.92  300.6s FACTIBLE (lim. tiempo)     752.72   1.0s  185.21%
-C14R2          205.55   43.1s             OPTIMO     520.89   1.0s  153.42%
-C15R2          225.05   38.6s             OPTIMO     519.67   1.1s  130.92%
-C16R2          271.03   32.4s             OPTIMO     734.95   1.2s  171.17%
-C17R2          173.95    6.8s             OPTIMO     612.25   1.4s  251.98%
-C18R2          302.76  300.5s FACTIBLE (lim. tiempo)    1005.97   1.6s  232.27%
-C19R2          219.93   13.2s             OPTIMO     703.62   1.8s  219.93%
-C20R2          287.95  301.5s FACTIBLE (lim. tiempo)     862.49   1.9s  199.52%
-C21R2          291.29  301.2s FACTIBLE (lim. tiempo)     892.83   2.1s  206.51%
-C22R2          262.00  259.2s             OPTIMO     829.70   2.4s  216.68%
-C23R2          254.73   31.3s             OPTIMO     923.32   2.9s  262.47%
-C24R2          277.45  302.2s FACTIBLE (lim. tiempo)     838.86   2.9s  202.35%
-----------------------------------------------------------------------------------------------------
-Promedio       250.93                                740.86         194.16%
-OR-Tools resueltos: 13/13
+EH-SA/TS (referencia solver MIP: solve_cplex.py → logs/run_NNN_small_cplex.txt)
+================================================================================
+Semilla EH: 42
+Inst           Clientes  Est    Energía  Rutas  VisEst   t(s)
+--------------------------------------------------------------------------------
+C12R2                12    2     433.88      1       1   2.8s
+C13R2                13    2     752.72      1       6   2.3s
+C14R2                14    2     520.89      1       3   2.5s
+C15R2                15    2     519.67      1       2   3.1s
+C16R2                16    2     734.95      1       6   3.4s
+C17R2                17    2     612.25      1       0   3.9s
+C18R2                18    2    1005.97      1       7   4.4s
+C19R2                19    2     703.62      1       5   4.5s
+C20R2                20    2     862.49      1       6   4.6s
+C21R2                21    2     892.83      1       5   5.2s
+C22R2                22    2     829.70      1       5   6.3s
+C23R2                23    2     923.32      1       2   8.4s
+C24R2                24    2     838.86      1       7   5.7s
+--------------------------------------------------------------------------------
+Promedio                         740.86                  4.4s
 EH factibles: 13/13
 
---- Resumen comparativo (modo -small) ---
-  C12R2: OR-Tools=226.42 kWh, EH-SA/TS=433.88 kWh, Gap=91.62%
-  C13R2: OR-Tools=263.92 kWh, EH-SA/TS=752.72 kWh, Gap=185.21%
-  C14R2: OR-Tools=205.55 kWh, EH-SA/TS=520.89 kWh, Gap=153.42%
-  C15R2: OR-Tools=225.05 kWh, EH-SA/TS=519.67 kWh, Gap=130.92%
-  C16R2: OR-Tools=271.03 kWh, EH-SA/TS=734.95 kWh, Gap=171.17%
-  C17R2: OR-Tools=173.95 kWh, EH-SA/TS=612.25 kWh, Gap=251.98%
-  C18R2: OR-Tools=302.76 kWh, EH-SA/TS=1005.97 kWh, Gap=232.27%
-  C19R2: OR-Tools=219.93 kWh, EH-SA/TS=703.62 kWh, Gap=219.93%
-  C20R2: OR-Tools=287.95 kWh, EH-SA/TS=862.49 kWh, Gap=199.52%
-  C21R2: OR-Tools=291.29 kWh, EH-SA/TS=892.83 kWh, Gap=206.51%
-  C22R2: OR-Tools=262.00 kWh, EH-SA/TS=829.70 kWh, Gap=216.68%
-  C23R2: OR-Tools=254.73 kWh, EH-SA/TS=923.32 kWh, Gap=262.47%
-  C24R2: OR-Tools=277.45 kWh, EH-SA/TS=838.86 kWh, Gap=202.35%
+--- Resumen (modo -small) ---
+  C12R2: EH-SA/TS=433.88 kWh
+  C13R2: EH-SA/TS=752.72 kWh
+  C14R2: EH-SA/TS=520.89 kWh
+  C15R2: EH-SA/TS=519.67 kWh
+  C16R2: EH-SA/TS=734.95 kWh
+  C17R2: EH-SA/TS=612.25 kWh
+  C18R2: EH-SA/TS=1005.97 kWh
+  C19R2: EH-SA/TS=703.62 kWh
+  C20R2: EH-SA/TS=862.49 kWh
+  C21R2: EH-SA/TS=892.83 kWh
+  C22R2: EH-SA/TS=829.70 kWh
+  C23R2: EH-SA/TS=923.32 kWh
+  C24R2: EH-SA/TS=838.86 kWh
 
  Experimento completado :D

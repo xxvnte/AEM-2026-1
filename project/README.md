@@ -183,15 +183,15 @@ El EH-SA/TS opera con tres niveles de evaluación con distintos propósitos y co
 | $f'_{approx}(S)$                                                                            | Evaluación de cada vecino en TS                                   | Evaluación rápida, evita recálculo en cascada                                            |
 | $f_{gen}(S) = f_e + \gamma_{cap} L_{cap} + \gamma_{batt} L_{batt} + \gamma_{miss} L_{miss}$ | Criterio de aceptación SA sobre el movimiento elegido **post-DP** | Guía la búsqueda y penaliza violaciones de capacidad/batería y **clientes no visitados** |
 | $f_e$ exacta (con penalizaciones)                                                           | Dentro de $f_{gen}$ durante el loop híbrido                       | Coste energético simulado tras reoptimizar el plan de recarga                            |
-| **Validación estricta**                                                                     | Al finalizar y en comparaciones con OR-Tools (`-small`)           | Comprueba factibilidad real antes de reportar energía                                    |
+| **Validación estricta**                                                                     | Al finalizar (`-small`, `-large`, etc.)                           | Comprueba factibilidad real antes de reportar energía                                    |
 
-**Búsqueda vs reporte.** Durante SA/TS, $f_{gen}$ puede explorar soluciones con penalizaciones ($L_{cap}$, $L_{batt}$, $L_{miss}$) para no bloquear la exploración, $L_{miss}$ cuenta clientes faltantes y visitas duplicadas con un peso alto ($\gamma_{miss}$) para que la búsqueda no prefiera rutas incompletas. En cambio, la **energía EH-SA/TS que se compara con OR-Tools** solo se reporta si la solución cumple simultáneamente:
+**Búsqueda vs reporte.** Durante SA/TS, $f_{gen}$ puede explorar soluciones con penalizaciones ($L_{cap}$, $L_{batt}$, $L_{miss}$) para no bloquear la exploración, $L_{miss}$ cuenta clientes faltantes y visitas duplicadas con un peso alto ($\gamma_{miss}$) para que la búsqueda no prefiera rutas incompletas. La **energía EH-SA/TS reportada** en logs solo se muestra si la solución cumple simultáneamente:
 
 - todos los clientes visitados **exactamente una vez**;
 - capacidad del vehículo respetada en cada ruta;
 - batería $\geq 0$ en **cada arco** (simulación estricta, sin “resetear” violaciones).
 
-Si alguna condición falla, la instancia se marca como **`INFACTIBLE`** y no se calcula Absolute Gap frente a OR-Tools.
+Si alguna condición falla, la instancia se marca como **`INFACTIBLE`**. La comparación con el óptimo MIP (CPLEX) se hace aparte leyendo `logs/run_NNN_small_cplex.txt`.
 
 **Nota:** En la implementación, el DP se invoca sobre el movimiento elegido por TS antes de que SA tome la decisión de aceptar o rechazar. Si SA rechaza el movimiento, el trabajo del DP de esa iteración se descarta. Dado que el DP se aplica únicamente sobre las rutas afectadas por el movimiento, el costo computacional adicional es acotado. La ventaja de esta estrategia es que $f_{gen}$ opera sobre un plan de recarga reoptimizado en lugar de uno aproximado, mejorando la calidad de la comparación en SA.
 
@@ -354,32 +354,81 @@ python main.py single C25R2-1
 python main.py single C14R2 --seed 123
 ```
 
-Salida en consola (y en `logs/run_NNN_single_C25R2-1.txt`): energía EH-SA/TS (kWh) si la solución es factible (`INFACTIBLE` en caso contrario), `f_gen`, tiempo, número de rutas y visitas a estaciones. No compara con OR-Tools, este sirve para depurar o repetir un caso puntual.
+Salida en consola (y en `logs/run_NNN_single_C25R2-1.txt`): energía EH-SA/TS (kWh) si la solución es factible (`INFACTIBLE` en caso contrario), `f_gen`, tiempo, número de rutas y visitas a estaciones. Sirve para depurar o repetir un caso puntual.
 
 ### Modos disponibles
 
-| Modo                 | Comando                             | Log / gráficos (`stats/<subcarpeta>/`, mismo prefijo que el log)  |
-| -------------------- | ----------------------------------- | ----------------------------------------------------------------- |
-| Pequeñas             | `python main.py -small`             | `logs/run_001_small.txt`, `stats/small/run_001_small_*.png`       |
-| Grandes              | `python main.py -large`             | `logs/run_001_large.txt`, `stats/large/run_001_large_*.png`       |
-| Todo                 | `python main.py -all`               | `logs/run_001_all.txt`, subcarpetas `small/`, `large/`, `extras/` |
-| Estaciones           | `python main.py recharge-stations`  | `logs/...`, `stats/extras/..._recharge_bars.png`                  |
-| Reserva batería      | `python main.py battery-reserve`    | `logs/...`, `stats/extras/..._battery_bars.png`                   |
-| Energía vs distancia | `python main.py energy-vs-distance` | `logs/...`, `stats/extras/..._evd_*.png`                          |
-| Una instancia        | `python main.py single <nombre>`    | `logs/...`, `stats/small/..._map_<nombre>.png`                    |
+| Modo                 | Comando                             | Log / gráficos (`stats/<subcarpeta>/`, mismo prefijo que el log)                      |
+| -------------------- | ----------------------------------- | ------------------------------------------------------------------------------------- |
+| Pequeñas             | `python main.py -small`             | `logs/run_001_small.txt` (+ CPLEX aparte; gráficos: `stats_small.py`)                 |
+| Grandes              | `python main.py -large`             | `logs/run_001_large.txt`, `stats/large/run_001_large_*.png`                           |
+| Todo                 | `python main.py -all`               | `logs/run_001_all.txt`; gráficos en `large/` y `extras/` (pequeñas: `stats_small.py`) |
+| Estaciones           | `python main.py recharge-stations`  | `logs/...`, `stats/extras/..._recharge_bars.png`                                      |
+| Reserva batería      | `python main.py battery-reserve`    | `logs/...`, `stats/extras/..._battery_bars.png`                                       |
+| Energía vs distancia | `python main.py energy-vs-distance` | `logs/...`, `stats/extras/..._evd_*.png`                                              |
+| Una instancia        | `python main.py single <nombre>`    | `logs/...` (sin gráficos automáticos)                                                 |
 
 También aceptan forma sin guión (`small`, `large`, `all`) o con guión (`-recharge-stations`, etc.).
 
 Modos auxiliares (no entran en `-all`): `extended` (C10R2, C11R2) y `bank` (55 instancias, solo EH-SA/TS).
 
+### Referencia CPLEX (AMPL)
+
+Solver MIP de energía para instancias pequeñas (referencia de optimalidad del paper). **No** se ejecuta desde `main.py`; usar `solve_cplex.py` con **amplpy** + módulo **CPLEX**.
+
+#### Instalación de AMPL y CPLEX (amplpy)
+
+Desde la carpeta `project` (o cualquier entorno Python 3):
+
+```bash
+# API de AMPL para Python
+python -m pip install amplpy --upgrade
+
+# Módulos de solvers (instalar al menos cplex; otros son opcionales)
+python -m amplpy.modules install cplex
+```
+
+Licencia AMPL (necesaria para ejecutar solvers). Obtén una en [ampl.com/ce](https://portal.ampl.com/external/?url=https://ampl.com/ce) o [ampl.com/courses](https://portal.ampl.com/external/?url=https://ampl.com/courses); el portal te entrega un **UUID de activación** (no lo subas al repositorio).
+
+```bash
+# Sustituye <TU-UUID-LICENCIA> por el código que te da AMPL
+python -m amplpy.modules activate <TU-UUID-LICENCIA>
+```
+
+Comprobar que AMPL y la licencia responden:
+
+```bash
+python -c "from amplpy import AMPL; ampl = AMPL(); print('AMPL OK')"
+```
+
+`requirements.txt` ya incluye `amplpy`; con `pip install -r requirements.txt` instalas la API, pero **CPLEX y la licencia** se configuran con los comandos `amplpy.modules` de arriba.
+
+#### Uso en este proyecto
+
+```bash
+cd project
+python solve_cplex.py --build-small-dat
+python solve_cplex.py
+python solve_cplex.py C12R2 C14R2
+```
+
+| Archivo                            | Rol                                           |
+| ---------------------------------- | --------------------------------------------- |
+| `model.mod`                        | Modelo AMPL                                   |
+| `instances/small_dat/<nombre>.dat` | Datos AMPL (generar con `--build-small-dat`)  |
+| `solve_cplex.py`                   | Batch CPLEX + generación opcional de `.dat`   |
+| `logs/run_NNN_small_cplex.txt`     | Traza y resumen CPLEX (numeración automática) |
+| `logs/run_NNN_<modo>.txt`          | Traza EH-SA/TS                                |
+
+CPLEX: sin límite de tiempo; `mipgap=0.0001` (0,01 %).
+
 ### Opciones
 
-| Opción           | Efecto                                                            | Default |
-| ---------------- | ----------------------------------------------------------------- | ------- |
-| `--seed N`       | Semilla base de EH-SA/TS; en `-large` deriva semillas por corrida | `42`    |
-| `--runs N`       | Número de corridas independientes en `-large`                     | `10`    |
-| `--time-limit N` | Límite en segundos de OR-Tools por instancia en `-small`          | `300`   |
-| `--help` / `-h`  | Resumen de modos en consola (no crea log)                         | —       |
+| Opción          | Efecto                                                            | Default |
+| --------------- | ----------------------------------------------------------------- | ------- |
+| `--seed N`      | Semilla base de EH-SA/TS; en `-large` deriva semillas por corrida | `42`    |
+| `--runs N`      | Número de corridas independientes en `-large`                     | `10`    |
+| `--help` / `-h` | Resumen de modos en consola (no crea log)                         | —       |
 
 En `-large`, las semillas son `base_seed + i × 9973` para `i = 0 … N-1` (reproducibilidad entre corridas).
 
@@ -387,40 +436,66 @@ En `-large`, las semillas son `base_seed + i × 9973` para `i = 0 … N-1` (repr
 
 ## Escenarios de prueba y métricas
 
-Las métricas siguen la notación de Zhang et al. (2018). En instancias pequeñas, el **solver de referencia** es **OR-Tools** (modelo MIP de energía, análogo al rol de **CPLEX** en el paper), en instancias grandes el paper compara varios métodos (p. ej. AC y ALNS), pero aquí solo se ejecuta **EH-SA/TS** varias veces, de modo que el RPD se calcula **entre runs del mismo algoritmo**, no frente a un segundo método.
+Las métricas siguen la notación de Zhang et al. (2018).
+
+- **Pequeñas:** `main.py -small` solo ejecuta **EH-SA/TS** (`logs/run_NNN_small.txt`). La referencia MIP óptima es **CPLEX** vía `solve_cplex.py` (`logs/run_NNN_small_cplex.txt`). El análisis comparativo (p. ej. Absolute Gap) se hace cruzando ambos logs.
+- **Grandes:** solo **EH-SA/TS** con varias corridas; el RPD se calcula **entre runs del mismo algoritmo**, no frente a AC/ALNS del paper.
 
 ### Instancias pequeñas (`-small`)
 
-**Qué se ejecuta:** las 13 instancias `C12R2` … `C24R2`. Por cada una se corre EH-SA/TS y, si OR-Tools está instalado vía `requirements.txt`, el solver resuelve un **modelo MIP** de energía como referencia de optimalidad.
+**Qué se ejecuta:** las 13 instancias `C12R2` … `C24R2` con EH-SA/TS únicamente.
 
-**Qué debe aparecer en el log** (`logs/run_NNN_small.txt`):
+**Log EH-SA/TS** (`logs/run_NNN_small.txt`):
 
-- Energía de OR-Tools (kWh), tiempo (`t_OR-Tools`) y estado (óptimo / factible con límite de tiempo / infactible).
-- Energía de EH-SA/TS (kWh) y tiempo (`t_EH`), o la etiqueta **`INFACTIBLE`** si la solución no cumple todas las restricciones.
-- **Absolute Gap (EH)** respecto a OR-Tools (solo si EH es factible y OR-Tools entregó referencia):
+- Energía EH-SA/TS (kWh), tiempo, rutas, visitas a estaciones, o **`INFACTIBLE`** con diagnóstico (clientes faltantes, violaciones).
+- Resumen al final (`--- Resumen (modo -small) ---`) y `EH factibles: X/13`.
+
+**Log referencia CPLEX** (`logs/run_NNN_small_cplex.txt`, script aparte):
+
+- Energía MIP (kWh), tiempo de solver, estado (óptimo / factible / infactible) por instancia.
+- Línea `Rutas CPLEX <inst>: [...]` por instancia (para mapas en `stats_small.py`).
+- Tabla resumen al final del batch CPLEX.
+
+**Gap (análisis manual):** con energía factible de EH y referencia CPLEX,
 
 $$\text{Gap} = \frac{E_{\text{EH}} - E_{\text{ref}}}{E_{\text{ref}}} \times 100\%$$
 
-donde \(E\_{\text{ref}}\) es la energía reportada por OR-Tools. Valores **positivos** indican que EH-SA/TS consume más energía que la referencia (comportamiento esperado frente a un óptimo), un gap negativo con EH factible sería inconsistente y suele indicar un error de validación.
-
-- Si EH es infactible, línea de diagnóstico con clientes servidos, faltantes y violaciones de batería/capacidad.
-- Tabla resumen por instancia y promedios al final (`--- Resumen comparativo (modo -small) ---`), incluyendo conteo `EH factibles: X/13`.
-
-Si OR-Tools no está instalado (`python -m pip install --user -r requirements.txt`), EH-SA/TS igual corre; la columna Gap muestra `---` y el resumen indica la instalación faltante.
+Valores positivos indican que EH-SA/TS consume más que el óptimo MIP.
 
 ### Gráficos (`stats/`)
 
-Tras cada ejecución, si `matplotlib` está instalado (`requirements.txt`), se generan **archivos PNG** bajo `stats/` en subcarpetas, con el **mismo prefijo** que el log (ej. `logs/run_003_small.txt` → `stats/small/run_003_small_bars.png`).
+Si `matplotlib` está instalado (`requirements.txt`), `main.py` genera PNG en `stats/large/` y `stats/extras/` al terminar `-large`, los tres experimentos de sensibilidad o `-all` (bloques grandes y extras). **No** genera gráficos de instancias pequeñas.
 
-| Subcarpeta      | Modos que escriben ahí                                                                | Archivos típicos                                                             |
-| --------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `stats/small/`  | `-small`, `-all` (bloque pequeñas), `single`                                          | `*_bars.png`, `*_gaps.png`, `*_map_<instancia>.png` (EH vs OR-Tools)         |
-| `stats/large/`  | `-large`, `-all` (bloque grandes)                                                     | `*_rpd_bars.png`, `*_energy_bars.png`, `*_map_<instancia>.png` (ruta EH B\*) |
-| `stats/extras/` | `recharge-stations`, `battery-reserve`, `energy-vs-distance`, `-all` (esos 3 bloques) | `*_recharge_bars.png`, `*_battery_bars.png`, `*_evd_*.png`                   |
+#### Pequeñas: `stats_small.py` (EH + CPLEX desde logs)
 
-En `-small` se genera un mapa por cada instancia del benchmark (`C12R2` … `C24R2`), con EH y OR-Tools superpuestos. En `-large` se genera un mapa por cada instancia del banco grande (~40), mostrando solo la **mejor corrida EH-SA/TS (B\*)**.
+Tras tener el par de logs del mismo número de run:
 
-Leyenda en mapas: depósito (cuadrado rojo), estaciones (triángulo verde), clientes (círculo azul); OR-Tools línea sólida morada, EH-SA/TS línea discontinua naranja.
+```bash
+python main.py -small
+python solve_cplex.py
+python stats_small.py          # último run emparejado
+python stats_small.py 001      # run_001_small.txt + run_001_small_cplex.txt
+python stats_small.py --no-maps   # solo barras y gaps
+```
+
+| Archivo en `stats/small/`      | Contenido                                              |
+| ------------------------------ | ------------------------------------------------------ |
+| `run_NNN_small_bars.png`       | Energía CPLEX vs EH-SA/TS                              |
+| `run_NNN_small_gaps.png`       | Absolute Gap % (EH vs CPLEX)                           |
+| `run_NNN_small_map_<inst>.png` | Mapa CPLEX (sólido) + EH-SA/TS (discontinuo)           |
+| `comparative_NNN_small.txt`    | Tabla energía, tiempo y Gap % (EH vs CPLEX desde logs) |
+
+Los mapas usan rutas CPLEX del log (`Rutas CPLEX <inst>: ...` en `run_NNN_small_cplex.txt`); si no están, `stats_small.py` puede re-resolver CPLEX solo para extraer rutas. Las rutas EH se reproducen con la semilla del log EH.
+
+| Subcarpeta      | Quién escribe ahí                                                                | Archivos típicos                                                             |
+| --------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `stats/small/`  | `stats_small.py`                                                                 | `*_bars.png`, `*_gaps.png`, `*_map_<instancia>.png`                          |
+| `stats/large/`  | `main.py` (`-large`, `-all`)                                                     | `*_rpd_bars.png`, `*_energy_bars.png`, `*_map_<instancia>.png` (ruta EH B\*) |
+| `stats/extras/` | `main.py` (`recharge-stations`, `battery-reserve`, `energy-vs-distance`, `-all`) | `*_recharge_bars.png`, `*_battery_bars.png`, `*_evd_*.png`                   |
+
+En `-large`, mapa por instancia del banco grande (~40) con la **mejor corrida EH-SA/TS (B\*)**.
+
+Leyenda en mapas pequeños: depósito (cuadrado rojo), estaciones (triángulo verde), clientes (círculo azul); CPLEX línea sólida morada; EH-SA/TS línea discontinua naranja.
 
 ### Instancias grandes (`-large`)
 

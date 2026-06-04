@@ -13,14 +13,6 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 
-try:
-    from ortools.linear_solver import pywraplp
-
-    ORTOOLS_AVAILABLE = True
-except ImportError:
-    pywraplp = None
-    ORTOOLS_AVAILABLE = False
-
 INSTANCES_DIR = Path(__file__).parent / "instances"
 LOGS_DIR = Path(__file__).parent / "logs"
 STATS_DIR = Path(__file__).parent / "stats"
@@ -56,7 +48,6 @@ GAMMA_BATT = 100.0
 GAMMA_MISS = 5000.0
 UMBRAL = 100
 
-MIP_TIME_LIMIT_DEFAULT = 300.0
 LARGE_NUM_RUNS_DEFAULT = 10
 
 BATTERY_RESERVE_LEVELS = {"0%": 0.0, "10%": 10.0, "20%": 20.0}
@@ -319,166 +310,6 @@ def arc_energy_kwh(arcs: dict, i: int, j: int, load_kg: float) -> float:
         return 1e9
     e_load = ALPHA_ARC * load_kg * arc.dist_m * EFF_D * EFF_M * JOULES_TO_KWH
     return arc.energy_kwh_empty + e_load
-
-
-def _extract_mip_routes(
-    x: dict,
-    all_nodes: list[int],
-    depot_start_idx: int,
-    depot_end_idx: int,
-) -> list[list[int]]:
-    remaining = {
-        (i_idx, j_idx)
-        for (i_idx, j_idx), var in x.items()
-        if var.solution_value() > 0.5
-    }
-    routes: list[list[int]] = []
-    while remaining:
-        path_idx = [depot_start_idx]
-        cur = depot_start_idx
-        stuck = False
-        while cur != depot_end_idx:
-            next_candidates = [j for (i, j) in remaining if i == cur]
-            if not next_candidates:
-                stuck = True
-                break
-            nxt = next_candidates[0]
-            remaining.discard((cur, nxt))
-            path_idx.append(nxt)
-            cur = nxt
-        if len(path_idx) >= 2:
-            routes.append([all_nodes[i] for i in path_idx])
-        if stuck or path_idx[-1] != depot_end_idx:
-            break
-    return routes
-
-
-def solve_mip_ortools(
-    vertices: list[Vertex],
-    arcs: dict[tuple[int, int], Arc],
-    time_limit_s: float = MIP_TIME_LIMIT_DEFAULT,
-    max_station_copies: int = 3,
-) -> tuple[float, str, list[list[int]]]:
-    """MIP de energía (resuelto con OR-Tools)."""
-    if not ORTOOLS_AVAILABLE:
-        return float("inf"), "OR-Tools no instalado (pip install ortools)", []
-
-    vmap = {v.idx: v for v in vertices}
-    depot_idxs = [v.idx for v in vertices if v.is_depot]
-    station_idxs = [v.idx for v in vertices if v.is_station]
-    customer_idxs = [v.idx for v in vertices if v.is_customer]
-
-    depot_start_vid = depot_idxs[0]
-    depot_end_vid = depot_idxs[-1] if len(depot_idxs) > 1 else depot_idxs[0]
-    n_customers = len(customer_idxs)
-    max_vehicles = n_customers
-
-    station_copies = []
-    for s in station_idxs:
-        for _ in range(max_station_copies * max_vehicles):
-            station_copies.append(s)
-
-    all_nodes = [depot_start_vid] + customer_idxs + station_copies + [depot_end_vid]
-    n_nodes = len(all_nodes)
-    depot_start_idx = 0
-    depot_end_idx = n_nodes - 1
-    demands_kg = {c: vmap[c].demand_tons * 1000.0 for c in customer_idxs}
-    cap_kg = VEHICLE_CAPACITY_TONS * 1000.0
-    bat_cap = BATTERY_CAPACITY_KWH
-    big_m_load = cap_kg + 1.0
-    big_m_batt = bat_cap + 1.0
-
-    solver = pywraplp.Solver.CreateSolver("SCIP") or pywraplp.Solver.CreateSolver("CBC")
-    if solver is None:
-        return float("inf"), "Sin solver MIP disponible", []
-    solver.SetTimeLimit(int(time_limit_s * 1000))
-
-    x = {
-        (i_idx, j_idx): solver.BoolVar(f"x_{i_idx}_{j_idx}")
-        for i_idx in range(n_nodes)
-        for j_idx in range(n_nodes)
-        if i_idx != j_idx and i_idx != depot_end_idx and j_idx != depot_start_idx
-    }
-    load = [solver.NumVar(0.0, cap_kg, f"load_{k}") for k in range(n_nodes)]
-    batt = [solver.NumVar(0.0, bat_cap, f"batt_{k}") for k in range(n_nodes)]
-
-    for j_idx, j in enumerate(all_nodes):
-        if j_idx == depot_start_idx:
-            continue
-        in_sum = solver.Sum(
-            x[i_idx, j_idx] for i_idx in range(n_nodes) if (i_idx, j_idx) in x
-        )
-        if j in customer_idxs:
-            solver.Add(in_sum == 1)
-        elif j_idx == depot_end_idx:
-            solver.Add(in_sum <= max_vehicles)
-        else:
-            solver.Add(in_sum <= 1)
-
-    for i_idx, i in enumerate(all_nodes):
-        if i_idx == depot_end_idx:
-            continue
-        out_sum = solver.Sum(
-            x[i_idx, j_idx] for j_idx in range(n_nodes) if (i_idx, j_idx) in x
-        )
-        if i in customer_idxs:
-            solver.Add(out_sum == 1)
-        elif i_idx == depot_start_idx:
-            solver.Add(out_sum <= max_vehicles)
-        else:
-            in_i = solver.Sum(
-                x[k_idx, i_idx] for k_idx in range(n_nodes) if (k_idx, i_idx) in x
-            )
-            solver.Add(out_sum == in_i)
-
-    solver.Add(load[depot_start_idx] == 0.0)
-    solver.Add(batt[depot_start_idx] == bat_cap)
-
-    for (i_idx, j_idx), var in x.items():
-        i, j = all_nodes[i_idx], all_nodes[j_idx]
-        d_j = demands_kg.get(j, 0.0)
-        solver.Add(load[j_idx] >= load[i_idx] + d_j - big_m_load * (1 - var))
-        solver.Add(load[j_idx] <= load[i_idx] + d_j + big_m_load * (1 - var))
-        solver.Add(load[j_idx] <= cap_kg)
-
-        load_approx = demands_kg.get(i, 0.0) * 0.5
-        e_ij = arc_energy_kwh(arcs, i, j, load_approx)
-        j_is_charger = j_idx == depot_end_idx or (j in vmap and vmap[j].is_station)
-
-        if j_is_charger:
-            solver.Add(batt[j_idx] <= bat_cap + big_m_batt * (1 - var))
-            solver.Add(batt[j_idx] >= bat_cap - big_m_batt * (1 - var))
-        else:
-            solver.Add(batt[j_idx] >= batt[i_idx] - e_ij - big_m_batt * (1 - var))
-
-    solver.Minimize(
-        solver.Sum(
-            arc_energy_kwh(
-                arcs,
-                all_nodes[i_idx],
-                all_nodes[j_idx],
-                demands_kg.get(all_nodes[i_idx], 0.0) * 0.5,
-            )
-            * var
-            for (i_idx, j_idx), var in x.items()
-        )
-    )
-
-    status = solver.Solve()
-    status_map = {
-        pywraplp.Solver.OPTIMAL: "OPTIMO",
-        pywraplp.Solver.FEASIBLE: "FACTIBLE (lim. tiempo)",
-        pywraplp.Solver.INFEASIBLE: "INFACTIBLE",
-        pywraplp.Solver.UNBOUNDED: "NO ACOTADO",
-        pywraplp.Solver.ABNORMAL: "ANORMAL",
-        pywraplp.Solver.NOT_SOLVED: "NO RESUELTO",
-    }
-    status_str = status_map.get(status, "DESCONOCIDO")
-
-    if status in (pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE):
-        routes = _extract_mip_routes(x, all_nodes, depot_start_idx, depot_end_idx)
-        return solver.Objective().Value(), status_str, routes
-    return float("inf"), status_str, []
 
 
 def arc_dist(arcs: dict, i: int, j: int) -> float:
@@ -824,7 +655,7 @@ def log_infeasible_candidate(
     label = "[MEJOR CANDIDATO INFACTIBLE]"
     inst_part = f" {instance}" if instance else ""
     reasons = ", ".join(_infeasibility_reasons(report))
-    print(f"{indent}{label}{inst_part} (NO válido para Gap / comparación OR-Tools)")
+    print(f"{indent}{label}{inst_part} (no reportada como energía válida)")
     print(
         f"{indent}  f_gen={fgen:.2f} | energía simulada={report['energy_kwh']:.2f} kWh"
     )
@@ -2317,112 +2148,56 @@ def _large_run_seeds(base_seed: int, num_runs: int) -> list[int]:
     return [base_seed + i * 9973 for i in range(num_runs)]
 
 
-def run_small_benchmark(
-    seed: int = 42,
-    mip_time_limit_s: float = MIP_TIME_LIMIT_DEFAULT,
-) -> list[dict]:
-    """Instancias pequeñas: EH-SA/TS vs OR-Tools"""
-    print("\n" + "=" * 100)
+def run_small_benchmark(seed: int = 42) -> list[dict]:
+    print("\n" + "=" * 80)
     print("MODO -small | INSTANCIAS PEQUEÑAS (C12R2-C24R2)")
-    print("Comparación EH-SA/TS vs solver OR-Tools (modelo MIP)")
-    print("=" * 100)
-    print("Métricas:")
-    print("  ref     = energía OR-Tools (límite de optimalidad / factible)")
-    print("  Absolute Gap (EH) = (E_EH - ref) / ref x 100%")
     print(
-        f"  Límite OR-Tools: {mip_time_limit_s:.0f} s por instancia | Semilla EH: {seed}"
+        "EH-SA/TS (referencia solver MIP: solve_cplex.py → logs/run_NNN_small_cplex.txt)"
     )
+    print("=" * 80)
+    print(f"Semilla EH: {seed}")
     hdr = (
-        f"{'Inst':<10} {'OR-Tools':>10} {'t_OT':>7} {'Estado':>18} "
-        f"{'EH-SA/TS':>10} {'t_EH':>6} {'Gap %':>8}"
+        f"{'Inst':<14} {'Clientes':>8} {'Est':>4} {'Energía':>10} "
+        f"{'Rutas':>6} {'VisEst':>7} {'t(s)':>6}"
     )
     print(hdr)
-    print("-" * 100)
+    print("-" * 80)
 
     results = []
     for name in SMALL_INSTANCES:
-        n_c, n_s = parse_instance_name(name)
-        vertices, arcs = load_instance(name)
-
-        t0 = time.time()
-        mip_e, mip_status, mip_routes = solve_mip_ortools(
-            vertices, arcs, time_limit_s=mip_time_limit_s
-        )
-        t_mip = time.time() - t0
-
-        t0 = time.time()
-        eh_routes, eh_e, _, eh_validation = run_eh_sats(
-            vertices,
-            arcs,
-            seed=seed,
-            instance_name=name,
-        )
-        t_eh = time.time() - t0
-
-        ref = mip_e if mip_e < 1e17 else None
-        eh_feasible = eh_validation["feasible"] and math.isfinite(eh_e)
-        gap = (
-            absolute_gap(eh_e, ref) if ref is not None and eh_feasible else float("nan")
-        )
-        mip_str = f"{mip_e:.2f}" if ref is not None else "---"
-        eh_str = f"{eh_e:.2f}" if eh_feasible else "INFACTIBLE"
-        gap_str = f"{gap:.2f}" if ref is not None and eh_feasible else "---"
-
-        row = dict(
-            instance=name,
-            customers=n_c,
-            stations=n_s,
-            mip_energy=round(mip_e, 2) if ref is not None else None,
-            mip_status=mip_status,
-            mip_time_s=round(t_mip, 2),
-            eh_energy=round(eh_e, 2) if eh_feasible else None,
-            eh_feasible=eh_feasible,
-            eh_time_s=round(t_eh, 2),
-            gap_pct=round(gap, 2) if ref is not None and eh_feasible else None,
-            eh_missing_customers=len(eh_validation["missing_customers"]),
-            eh_battery_violation=round(eh_validation["battery_violation_kwh"], 4),
-        )
-        row["eh_routes"] = [list(r) for r in eh_routes]
-        row["mip_routes"] = [list(r) for r in mip_routes]
+        row = _run_eh_on_instance(name, seed)
+        row["eh_routes"] = row.get("eh_paths", [])
         results.append(row)
+        energy_text = (
+            f"{row['energy']:>10.2f}"
+            if row.get("feasible") and row["energy"] is not None
+            else f"{'INFACTIBLE':>10}"
+        )
         print(
-            f"{name:<10} {mip_str:>10} {t_mip:>6.1f}s {mip_status:>18} "
-            f"{eh_str:>10} {t_eh:>5.1f}s {gap_str:>7}%"
+            f"{row['instance']:<14} {row['customers']:>8} {row['stations']:>4} "
+            f"{energy_text} {row['routes']:>6} "
+            f"{row['station_visits']:>7} {row['time_s']:>5.1f}s"
         )
 
-    valid = [r for r in results if r["gap_pct"] is not None]
-    solved = [r for r in results if r["mip_energy"] is not None]
-    feasible_eh = [r for r in results if r["eh_feasible"]]
-    if valid:
-        avg_mip = sum(r["mip_energy"] for r in solved) / len(solved)
-        avg_eh = sum(r["eh_energy"] for r in valid) / len(valid)
-        avg_gap = sum(r["gap_pct"] for r in valid) / len(valid)
-        print("-" * 100)
+    feasible = [r for r in results if r.get("feasible") and r["energy"] is not None]
+    print("-" * 80)
+    if feasible:
+        avg_e = sum(r["energy"] for r in feasible) / len(feasible)
+        avg_t = sum(r["time_s"] for r in results) / len(results)
         print(
-            f"{'Promedio':<10} {avg_mip:>10.2f} {'':>7} {'':>18} "
-            f"{avg_eh:>10.2f} {'':>6} {avg_gap:>7.2f}%"
+            f"{'Promedio':<14} {'':>8} {'':>4} {avg_e:>10.2f} {'':>6} {'':>7} {avg_t:>5.1f}s"
         )
-        print(f"OR-Tools resueltos: {len(solved)}/{len(results)}")
-        print(f"EH factibles: {len(feasible_eh)}/{len(results)}")
-    elif not ORTOOLS_AVAILABLE:
-        print("\nInstale OR-Tools: pip install ortools")
+    print(f"EH factibles: {len(feasible)}/{len(results)}")
 
-    print("\n--- Resumen comparativo (modo -small) ---")
+    print("\n--- Resumen (modo -small) ---")
     for r in results:
-        if r["gap_pct"] is not None:
-            print(
-                f"  {r['instance']}: OR-Tools={r['mip_energy']:.2f} kWh, "
-                f"EH-SA/TS={r['eh_energy']:.2f} kWh, Gap={r['gap_pct']:.2f}%"
-            )
-        elif r["eh_feasible"]:
-            print(
-                f"  {r['instance']}: EH-SA/TS={r['eh_energy']:.2f} kWh (sin ref OR-Tools)"
-            )
+        if r.get("feasible") and r["energy"] is not None:
+            print(f"  {r['instance']}: EH-SA/TS={r['energy']:.2f} kWh")
         else:
             print(
                 f"  {r['instance']}: EH-SA/TS=INFACTIBLE "
-                f"(clientes faltantes={r['eh_missing_customers']}, "
-                f"viol_bat={r['eh_battery_violation']:.2f} kWh)"
+                f"(faltantes={r['missing_customers']}, "
+                f"viol_bat={r['battery_violation_kwh']:.2f} kWh)"
             )
 
     return results
@@ -2740,7 +2515,7 @@ def _save_route_comparison_map(
     ref_routes: list[list[int]] | None,
     *,
     category: str = "small",
-    ref_label: str = "OR-Tools",
+    ref_label: str = "Referencia",
     eh_label: str = "EH-SA/TS",
     eh_energy: float | None = None,
     ref_energy: float | None = None,
@@ -2869,54 +2644,6 @@ def generate_visual_reports(
         if path is not None:
             saved.append(path)
 
-    small_rows = results.get("small")
-    if small_rows and mode in ("small", "all"):
-        gap_rows = [r for r in small_rows if r.get("gap_pct") is not None]
-        if gap_rows:
-            labels = [r["instance"] for r in gap_rows]
-            add(
-                _save_bar_chart(
-                    prefix,
-                    "bars",
-                    labels,
-                    {
-                        "OR-Tools (kWh)": [r["mip_energy"] for r in gap_rows],
-                        "EH-SA/TS (kWh)": [r["eh_energy"] for r in gap_rows],
-                    },
-                    category="small",
-                    title="Pequeñas: energía OR-Tools vs EH-SA/TS",
-                    ylabel="Energía (kWh)",
-                )
-            )
-            add(
-                _save_bar_chart(
-                    prefix,
-                    "gaps",
-                    labels,
-                    {"Gap % (EH)": [r["gap_pct"] for r in gap_rows]},
-                    category="small",
-                    title="Pequeñas: Absolute Gap EH-SA/TS vs OR-Tools",
-                    ylabel="Gap (%)",
-                )
-            )
-        for row in small_rows:
-            inst = row["instance"]
-            if not row.get("eh_routes"):
-                continue
-            vertices, _ = load_instance(inst)
-            add(
-                _save_route_comparison_map(
-                    prefix,
-                    inst,
-                    vertices,
-                    row["eh_routes"],
-                    row.get("mip_routes"),
-                    category="small",
-                    eh_energy=row.get("eh_energy"),
-                    ref_energy=row.get("mip_energy"),
-                )
-            )
-
     large_rows = results.get("large")
     if large_rows and mode in ("large", "all"):
         labels = [s["instance"] for s in large_rows]
@@ -3032,32 +2759,10 @@ def generate_visual_reports(
             )
         )
 
-    if mode == "single" and single_name:
-        row = results.get("single")
-        if row and row.get("eh_paths"):
-            vertices, arcs = load_instance(single_name)
-            mip_routes: list[list[int]] = []
-            ref_e = None
-            if ORTOOLS_AVAILABLE and _instance_path(single_name).parent.name == "small":
-                mip_e, _, mip_routes = solve_mip_ortools(vertices, arcs)
-                ref_e = mip_e if mip_e < 1e17 else None
-            add(
-                _save_route_comparison_map(
-                    prefix,
-                    single_name,
-                    vertices,
-                    row["eh_paths"],
-                    mip_routes or None,
-                    category="small",
-                    eh_energy=row.get("energy"),
-                    ref_energy=ref_e,
-                )
-            )
-
     if saved:
         print(
             f"\n[stats] {len(saved)} gráfico(s) PNG (prefijo {prefix}) en "
-            f"{STATS_DIR}/small|large|extras/"
+            f"{STATS_DIR}/large|extras/ (pequeñas: stats_small.py)"
         )
         for path in saved:
             print(f"  - {path.name}")
@@ -3126,8 +2831,9 @@ def print_execution_modes_summary() -> None:
     """Resumen de modos (también en docstring del módulo)."""
     print("Modos de ejecución:")
     print("  python main.py -small")
-    print("    EH-SA/TS vs OR-Tools. Absolute Gap vs ref (Tabla 2, Zhang et al.).")
-    print("    Log: logs/run_NNN_small.txt")
+    print("    EH-SA/TS en C12R2-C24R2. Log: logs/run_NNN_small.txt")
+    print("    Referencia CPLEX: solve_cplex.py → logs/run_NNN_small_cplex.txt")
+    print("    Gráficos instancias small: python stats_small.py [NNN] → stats/small/")
     print("")
     print("  python main.py -large")
     print(
@@ -3149,14 +2855,13 @@ def print_execution_modes_summary() -> None:
 
 
 def print_usage():
-    print("Uso: python main.py <modo> [--seed N] [--runs N] [--time-limit N]")
+    print("Uso: python main.py <modo> [--seed N] [--runs N]")
     print("")
     print_execution_modes_summary()
     print("")
     print("Opciones:")
     print("  --seed N         Semilla base EH-SA/TS (default: 42)")
     print("  --runs N         Corridas en -large (default: 10)")
-    print("  --time-limit N   Límite de OR-Tools en -small, segundos (default: 300)")
     print("")
     print("Otros modos: extended (C10-C11), bank (55 instancias)")
 
@@ -3166,7 +2871,6 @@ def _execute_mode(
     seed: int,
     single_name: str | None,
     num_runs: int = LARGE_NUM_RUNS_DEFAULT,
-    mip_time_limit_s: float = MIP_TIME_LIMIT_DEFAULT,
 ) -> dict:
     print("=" * 70)
     print("EH-SA/TS - Enhanced Hybrid Simulated Annealing / Tabu Search")
@@ -3177,7 +2881,7 @@ def _execute_mode(
 
     if mode == "all":
         print("\nPipeline -all:")
-        print("  1) -small          EH-SA/TS vs OR-Tools + Absolute Gap")
+        print("  1) -small          EH-SA/TS (C12R2-C24R2)")
         print("  2) -large          Multi-run EH-SA/TS + RPD vs B*")
         print("  3) recharge-stations")
         print("  4) battery-reserve")
@@ -3204,9 +2908,7 @@ def _execute_mode(
         return collected
 
     if mode in ("all", "small"):
-        collected["small"] = run_small_benchmark(
-            seed=seed, mip_time_limit_s=mip_time_limit_s
-        )
+        collected["small"] = run_small_benchmark(seed=seed)
     if mode in ("all", "large"):
         collected["large"] = run_large_multi_run(base_seed=seed, num_runs=num_runs)
     if mode == "extended":
@@ -3229,7 +2931,6 @@ def main():
     seed = 42
     single_name = None
     num_runs = LARGE_NUM_RUNS_DEFAULT
-    mip_time_limit_s = MIP_TIME_LIMIT_DEFAULT
 
     i = 0
     while i < len(args):
@@ -3241,9 +2942,6 @@ def main():
             i += 2
         elif args[i] == "--runs" and i + 1 < len(args):
             num_runs = int(args[i + 1])
-            i += 2
-        elif args[i] == "--time-limit" and i + 1 < len(args):
-            mip_time_limit_s = float(args[i + 1])
             i += 2
         elif args[i] == "single" and i + 1 < len(args):
             mode = "single"
@@ -3262,7 +2960,6 @@ def main():
             seed,
             single_name,
             num_runs=num_runs,
-            mip_time_limit_s=mip_time_limit_s,
         )
     print(f"\nLog guardado en: {log_path}")
     generate_visual_reports(
