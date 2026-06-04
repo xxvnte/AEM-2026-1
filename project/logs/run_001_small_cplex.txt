@@ -1,6 +1,26 @@
 EVRP — batch CPLEX (AMPL)
-Instancias: 13
+Instancias: 15
 CPLEX: sin límite de tiempo, mipgap=0.0001
+
+============================================================
+Instancia: C10R2
+Datos: C:\Users\PC\Desktop\AEM-2026-1\project\instances\small_dat\C10R2.dat
+CPLEX 22.1.2:   mip:gap = 0.0001
+CPLEX 22.1.2: optimal solution; objective 180.1520069
+91 simplex iterations
+absmipgap=2.84032, relmipgap=0.0157662
+Estado: OPTIMO | Energía: 180.1520 kWh | Tiempo: 3.34 s
+Rutas CPLEX C10R2: [[0, 10, 5, 6, 4, 1, 3, 8, 7, 2, 9, 0]]
+
+============================================================
+Instancia: C11R2
+Datos: C:\Users\PC\Desktop\AEM-2026-1\project\instances\small_dat\C11R2.dat
+CPLEX 22.1.2:   mip:gap = 0.0001
+CPLEX 22.1.2: optimal solution; objective 199.5103214
+5304 simplex iterations
+2193 branching nodes
+Estado: OPTIMO | Energía: 199.5103 kWh | Tiempo: 7.38 s
+Rutas CPLEX C11R2: [[0, 7, 9, 13, 3, 4, 11, 6, 1, 10, 5, 2, 8, 12, 0]]
 
 ============================================================
 Instancia: C12R2
@@ -9,7 +29,7 @@ CPLEX 22.1.2:   mip:gap = 0.0001
 CPLEX 22.1.2: optimal solution; objective 226.4243148
 1708 simplex iterations
 196 branching nodes
-Estado: OPTIMO | Energía: 226.4243 kWh | Tiempo: 3.49 s
+Estado: OPTIMO | Energía: 226.4243 kWh | Tiempo: 4.93 s
 Rutas CPLEX C12R2: [[0, 10, 7, 4, 1, 3, 5, 12, 6, 9, 8, 11, 2, 0]]
 
 ============================================================
@@ -20,7 +40,7 @@ CPLEX 22.1.2: optimal solution within tolerance; objective 263.9152171
 4371783 simplex iterations
 313048 branching nodes
 absmipgap=0.021418, relmipgap=8.11547e-05
-Estado: OPTIMO | Energía: 263.9152 kWh | Tiempo: 815.43 s
+Estado: OPTIMO | Energía: 263.9152 kWh | Tiempo: 461.62 s
 Rutas CPLEX C13R2: [[0, 5, 13, 3, 1, 7, 9, 2, 11, 4, 14, 6, 10, 8, 12, 0]]
 
 ============================================================
@@ -30,7 +50,7 @@ CPLEX 22.1.2:   mip:gap = 0.0001
 CPLEX 22.1.2: optimal solution; objective 205.5458596
 60253 simplex iterations
 4029 branching nodes
-Estado: OPTIMO | Energía: 205.5459 kWh | Tiempo: 51.12 s
+Estado: OPTIMO | Energía: 205.5459 kWh | Tiempo: 28.38 s
 Rutas CPLEX C14R2: [[0, 4, 11, 6, 3, 9, 14, 5, 12, 1, 13, 2, 8, 10, 7, 0]]
 
 ============================================================
@@ -40,7 +60,7 @@ CPLEX 22.1.2:   mip:gap = 0.0001
 CPLEX 22.1.2: optimal solution; objective 225.0467727
 6785 simplex iterations
 348 branching nodes
-Estado: OPTIMO | Energía: 225.0468 kWh | Tiempo: 14.55 s
+Estado: OPTIMO | Energía: 225.0468 kWh | Tiempo: 9.27 s
 Rutas CPLEX C15R2: [[0, 13, 10, 6, 15, 2, 5, 7, 16, 8, 3, 4, 1, 14, 9, 11, 12, 0]]
 
 ============================================================
@@ -50,7 +70,7 @@ CPLEX 22.1.2:   mip:gap = 0.0001
 CPLEX 22.1.2: optimal solution; objective 271.0258815
 13580 simplex iterations
 433 branching nodes
-Estado: OPTIMO | Energía: 271.0259 kWh | Tiempo: 17.52 s
+Estado: OPTIMO | Energía: 271.0259 kWh | Tiempo: 12.32 s
 Rutas CPLEX C16R2: [[0, 3, 8, 5, 1, 6, 13, 15, 14, 7, 10, 4, 11, 12, 18, 16, 9, 2, 0]]
 
 ============================================================
@@ -59,7 +79,7 @@ Datos: C:\Users\PC\Desktop\AEM-2026-1\project\instances\small_dat\C17R2.dat
 CPLEX 22.1.2:   mip:gap = 0.0001
 CPLEX 22.1.2: optimal solution; objective 173.9470022
 113 simplex iterations
-Estado: OPTIMO | Energía: 173.9470 kWh | Tiempo: 6.09 s
+Estado: OPTIMO | Energía: 173.9470 kWh | Tiempo: 3.95 s
 Rutas CPLEX C17R2: [[0, 17, 10, 5, 7, 16, 8, 14, 2, 3, 1, 4, 13, 9, 11, 6, 12, 15, 0]]
 
 ============================================================
@@ -70,7 +90,7 @@ CPLEX 22.1.2: optimal solution within tolerance; objective 302.7582098
 77513 simplex iterations
 3419 branching nodes
 absmipgap=0.0161931, relmipgap=5.34854e-05
-Estado: OPTIMO | Energía: 302.7582 kWh | Tiempo: 57.13 s
+Estado: OPTIMO | Energía: 302.7582 kWh | Tiempo: 35.43 s
 Rutas CPLEX C18R2: [[0, 3, 6, 18, 10, 12, 13, 1, 8, 2, 4, 15, 16, 19, 11, 14, 9, 17, 5, 7, 0]]
 
 ============================================================
@@ -79,7 +99,7 @@ Datos: C:\Users\PC\Desktop\AEM-2026-1\project\instances\small_dat\C19R2.dat
 CPLEX 22.1.2:   mip:gap = 0.0001
 CPLEX 22.1.2: optimal solution; objective 219.9300691
 1062 simplex iterations
-Estado: OPTIMO | Energía: 219.9301 kWh | Tiempo: 17.43 s
+Estado: OPTIMO | Energía: 219.9301 kWh | Tiempo: 10.7 s
 Rutas CPLEX C19R2: [[0, 18, 5, 17, 19, 6, 15, 1, 13, 20, 4, 12, 2, 9, 16, 11, 10, 7, 14, 3, 8, 0]]
 
 ============================================================
@@ -89,7 +109,7 @@ CPLEX 22.1.2:   mip:gap = 0.0001
 CPLEX 22.1.2: optimal solution; objective 275.3173358
 26616 simplex iterations
 605 branching nodes
-Estado: OPTIMO | Energía: 275.3173 kWh | Tiempo: 32.79 s
+Estado: OPTIMO | Energía: 275.3173 kWh | Tiempo: 19.54 s
 Rutas CPLEX C20R2: [[0, 5, 7, 9, 6, 14, 12, 16, 13, 15, 20, 2, 18, 3, 10, 17, 8, 19, 21, 1, 4, 11, 0]]
 
 ============================================================
@@ -100,7 +120,7 @@ CPLEX 22.1.2: optimal solution within tolerance; objective 271.3234808
 99600 simplex iterations
 4460 branching nodes
 absmipgap=0.00786894, relmipgap=2.9002e-05
-Estado: OPTIMO | Energía: 271.3235 kWh | Tiempo: 64.39 s
+Estado: OPTIMO | Energía: 271.3235 kWh | Tiempo: 36.25 s
 Rutas CPLEX C21R2: [[0, 10, 6, 17, 14, 18, 9, 21, 2, 7, 5, 16, 15, 1, 13, 11, 8, 12, 3, 20, 19, 4, 0]]
 
 ============================================================
@@ -111,7 +131,7 @@ CPLEX 22.1.2: optimal solution within tolerance; objective 261.9976575
 3752 simplex iterations
 139 branching nodes
 absmipgap=0.0190919, relmipgap=7.28706e-05
-Estado: OPTIMO | Energía: 261.9977 kWh | Tiempo: 25.81 s
+Estado: OPTIMO | Energía: 261.9977 kWh | Tiempo: 15.44 s
 Rutas CPLEX C22R2: [[0, 20, 8, 4, 11, 18, 21, 5, 13, 9, 1, 7, 10, 22, 17, 12, 3, 2, 15, 16, 6, 19, 14, 0]]
 
 ============================================================
@@ -120,7 +140,7 @@ Datos: C:\Users\PC\Desktop\AEM-2026-1\project\instances\small_dat\C23R2.dat
 CPLEX 22.1.2:   mip:gap = 0.0001
 CPLEX 22.1.2: optimal solution; objective 254.7285429
 343 simplex iterations
-Estado: OPTIMO | Energía: 254.7285 kWh | Tiempo: 26.56 s
+Estado: OPTIMO | Energía: 254.7285 kWh | Tiempo: 15.89 s
 Rutas CPLEX C23R2: [[0, 8, 18, 22, 16, 17, 11, 4, 2, 19, 21, 1, 15, 5, 10, 9, 7, 13, 20, 6, 12, 14, 3, 23, 0]]
 
 ============================================================
@@ -131,7 +151,7 @@ CPLEX 22.1.2: optimal solution within tolerance; objective 262.608488
 67178 simplex iterations
 2190 branching nodes
 absmipgap=0.0105607, relmipgap=4.02147e-05
-Estado: OPTIMO | Energía: 262.6085 kWh | Tiempo: 68.56 s
+Estado: OPTIMO | Energía: 262.6085 kWh | Tiempo: 45.47 s
 Rutas CPLEX C24R2: [[0, 19, 18, 7, 2, 21, 14, 4, 13, 15, 8, 6, 17, 10, 3, 20, 12, 24, 23, 5, 1, 9, 11, 16, 22, 0]]
 
 ========================================================================
@@ -139,20 +159,22 @@ RESUMEN CPLEX (instancias pequeñas)
 ========================================================================
 Instancia         Energía   Tiempo Estado                
 ------------------------------------------------------------------------
-C12R2            226.4243     3.5s OPTIMO                
-C13R2            263.9152   815.4s OPTIMO                
-C14R2            205.5459    51.1s OPTIMO                
-C15R2            225.0468    14.6s OPTIMO                
-C16R2            271.0259    17.5s OPTIMO                
-C17R2            173.9470     6.1s OPTIMO                
-C18R2            302.7582    57.1s OPTIMO                
-C19R2            219.9301    17.4s OPTIMO                
-C20R2            275.3173    32.8s OPTIMO                
-C21R2            271.3235    64.4s OPTIMO                
-C22R2            261.9977    25.8s OPTIMO                
-C23R2            254.7285    26.6s OPTIMO                
-C24R2            262.6085    68.6s OPTIMO                
+C10R2            180.1520     3.3s OPTIMO                
+C11R2            199.5103     7.4s OPTIMO                
+C12R2            226.4243     4.9s OPTIMO                
+C13R2            263.9152   461.6s OPTIMO                
+C14R2            205.5459    28.4s OPTIMO                
+C15R2            225.0468     9.3s OPTIMO                
+C16R2            271.0259    12.3s OPTIMO                
+C17R2            173.9470     4.0s OPTIMO                
+C18R2            302.7582    35.4s OPTIMO                
+C19R2            219.9301    10.7s OPTIMO                
+C20R2            275.3173    19.5s OPTIMO                
+C21R2            271.3235    36.2s OPTIMO                
+C22R2            261.9977    15.4s OPTIMO                
+C23R2            254.7285    15.9s OPTIMO                
+C24R2            262.6085    45.5s OPTIMO                
 ------------------------------------------------------------------------
-Resueltas: 13/13
+Resueltas: 15/15
 
  Experimento CPLEX completado

@@ -370,7 +370,7 @@ Salida en consola (y en `logs/run_NNN_single_C25R2-1.txt`): energía EH-SA/TS (k
 
 También aceptan forma sin guión (`small`, `large`, `all`) o con guión (`-recharge-stations`, etc.).
 
-Modos auxiliares (no entran en `-all`): `extended` (C10R2, C11R2) y `bank` (55 instancias, solo EH-SA/TS).
+Modos auxiliares (no entran en `-all`): `extended` (C10R2 y C11R2; forman parte de `-small`) y `bank` (55 instancias, solo EH-SA/TS).
 
 ### Referencia CPLEX (AMPL)
 
@@ -388,7 +388,7 @@ python -m pip install amplpy --upgrade
 python -m amplpy.modules install cplex
 ```
 
-Licencia AMPL (necesaria para ejecutar solvers). Obtén una en [ampl.com/ce](https://portal.ampl.com/external/?url=https://ampl.com/ce) o [ampl.com/courses](https://portal.ampl.com/external/?url=https://ampl.com/courses); el portal te entrega un **UUID de activación** (no lo subas al repositorio).
+Licencia AMPL (necesaria para ejecutar solvers). Se obtiene en [ampl.com/ce](https://portal.ampl.com/external/?url=https://ampl.com/ce) o [ampl.com/courses](https://portal.ampl.com/external/?url=https://ampl.com/courses); el portal entrega un **UUID de activación**.
 
 ```bash
 # Sustituye <TU-UUID-LICENCIA> por el código que te da AMPL
@@ -401,7 +401,7 @@ Comprobar que AMPL y la licencia responden:
 python -c "from amplpy import AMPL; ampl = AMPL(); print('AMPL OK')"
 ```
 
-`requirements.txt` ya incluye `amplpy`; con `pip install -r requirements.txt` instalas la API, pero **CPLEX y la licencia** se configuran con los comandos `amplpy.modules` de arriba.
+`requirements.txt` ya incluye `amplpy`; con `pip install -r requirements.txt` se instala la API, pero **CPLEX y la licencia** se configuran con los comandos `amplpy.modules` de arriba.
 
 #### Uso en este proyecto
 
@@ -420,7 +420,7 @@ python solve_cplex.py C12R2 C14R2
 | `logs/run_NNN_small_cplex.txt`     | Traza y resumen CPLEX (numeración automática) |
 | `logs/run_NNN_<modo>.txt`          | Traza EH-SA/TS                                |
 
-CPLEX: sin límite de tiempo; `mipgap=0.0001` (0,01 %).
+CPLEX: sin límite de tiempo; `mipgap=0.0001` (0,01 %). Por defecto, `solve_cplex.py` resuelve **C10R2–C24R2** (15 instancias).
 
 ### Opciones
 
@@ -439,16 +439,16 @@ En `-large`, las semillas son `base_seed + i × 9973` para `i = 0 … N-1` (repr
 Las métricas siguen la notación de Zhang et al. (2018).
 
 - **Pequeñas:** `main.py -small` solo ejecuta **EH-SA/TS** (`logs/run_NNN_small.txt`). La referencia MIP óptima es **CPLEX** vía `solve_cplex.py` (`logs/run_NNN_small_cplex.txt`). El análisis comparativo (p. ej. Absolute Gap) se hace cruzando ambos logs.
-- **Grandes:** solo **EH-SA/TS** con varias corridas; el RPD se calcula **entre runs del mismo algoritmo**, no frente a AC/ALNS del paper.
+- **Grandes:** solo **EH-SA/TS** con varias corridas (runs); el RPD se calcula **entre runs del mismo algoritmo**.
 
 ### Instancias pequeñas (`-small`)
 
-**Qué se ejecuta:** las 13 instancias `C12R2` … `C24R2` con EH-SA/TS únicamente.
+**Qué se ejecuta:** las 15 instancias `C10R2` … `C24R2` con EH-SA/TS únicamente (incluye las dos primeras del banco pequeño del paper).
 
 **Log EH-SA/TS** (`logs/run_NNN_small.txt`):
 
 - Energía EH-SA/TS (kWh), tiempo, rutas, visitas a estaciones, o **`INFACTIBLE`** con diagnóstico (clientes faltantes, violaciones).
-- Resumen al final (`--- Resumen (modo -small) ---`) y `EH factibles: X/13`.
+- Resumen al final (`--- Resumen (modo -small) ---`) y `EH factibles: X/15`.
 
 **Log referencia CPLEX** (`logs/run_NNN_small_cplex.txt`, script aparte):
 

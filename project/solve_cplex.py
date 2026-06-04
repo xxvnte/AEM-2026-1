@@ -30,7 +30,7 @@ LARGE_DAT_DIR = INSTANCES_DIR / "large_dat"
 LOG_SLUG = "small_cplex"
 MAX_STATION_COPIES = 3
 
-DEFAULT_INSTANCES = [f"C{n}R2" for n in range(12, 25)]
+DEFAULT_INSTANCES = [f"C{n}R2" for n in range(10, 25)]
 CPLEX_MIP_GAP = 0.0001
 
 

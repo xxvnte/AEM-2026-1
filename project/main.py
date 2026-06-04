@@ -52,8 +52,8 @@ LARGE_NUM_RUNS_DEFAULT = 10
 
 BATTERY_RESERVE_LEVELS = {"0%": 0.0, "10%": 10.0, "20%": 20.0}
 
-SMALL_INSTANCES = [f"C{n}R2" for n in range(12, 25)]
-SMALL_INSTANCES_EXTENDED = [f"C{n}R2" for n in range(10, 25)]
+SMALL_INSTANCES = [f"C{n}R2" for n in range(10, 25)]
+SMALL_INSTANCES_EXTENDED = SMALL_INSTANCES
 SMALL_INSTANCES_OWN = [f"C{n}R2" for n in range(10, 12)]
 LARGE_INSTANCES = []
 for _n in (25, 50, 75, 100, 150):
@@ -2150,7 +2150,7 @@ def _large_run_seeds(base_seed: int, num_runs: int) -> list[int]:
 
 def run_small_benchmark(seed: int = 42) -> list[dict]:
     print("\n" + "=" * 80)
-    print("MODO -small | INSTANCIAS PEQUEÑAS (C12R2-C24R2)")
+    print("MODO -small | INSTANCIAS PEQUEÑAS (C10R2-C24R2)")
     print(
         "EH-SA/TS (referencia solver MIP: solve_cplex.py → logs/run_NNN_small_cplex.txt)"
     )
@@ -2831,7 +2831,7 @@ def print_execution_modes_summary() -> None:
     """Resumen de modos (también en docstring del módulo)."""
     print("Modos de ejecución:")
     print("  python main.py -small")
-    print("    EH-SA/TS en C12R2-C24R2. Log: logs/run_NNN_small.txt")
+    print("    EH-SA/TS en C10R2-C24R2 (15 inst.). Log: logs/run_NNN_small.txt")
     print("    Referencia CPLEX: solve_cplex.py → logs/run_NNN_small_cplex.txt")
     print("    Gráficos instancias small: python stats_small.py [NNN] → stats/small/")
     print("")
@@ -2881,7 +2881,7 @@ def _execute_mode(
 
     if mode == "all":
         print("\nPipeline -all:")
-        print("  1) -small          EH-SA/TS (C12R2-C24R2)")
+        print("  1) -small          EH-SA/TS (C10R2-C24R2)")
         print("  2) -large          Multi-run EH-SA/TS + RPD vs B*")
         print("  3) recharge-stations")
         print("  4) battery-reserve")
