@@ -519,6 +519,24 @@ Si se omite el número, `stats.py` usa el último run disponible.
 
 **Interpretación:** si E_dist > E_min, minimizar distancia empeora la energía; el % positivo cuantifica ese sobrecoste. Valores `nan` o barras vacías = al menos una corrida infactible.
 
+### Gráficos del paper (`stats_paper.py`)
+
+Script aparte que reproduce los resultados numéricos de las **Tablas 2–6** de Zhang et al. (2018) y genera gráficos de barras equivalentes (energía, gap, RPD, estaciones, reserva, energía vs distancia). Sirve como **referencia visual del paper** para comparar con resultados en `stats/`.
+
+```bash
+python stats_paper.py
+```
+
+Salida en `stats_paper/` (misma estructura que `stats/`):
+
+| Carpeta               | Contenido (datos del paper)                                               |
+| --------------------- | ------------------------------------------------------------------------- |
+| `stats_paper/small/`  | Tabla 2 — CPLEX / ALNS / AC en instancias pequeñas                        |
+| `stats_paper/large/`  | Tabla 3 — ALNS vs AC en instancias grandes                                |
+| `stats_paper/extras/` | Tablas 4–6 — `recharge-stations`, `battery-reserve`, `energy-vs-distance` |
+
+No genera mapas ni evolución FO (ya que el paper no publica rutas), solo métricas agregadas y por instancia.
+
 ### Opciones de línea de comandos
 
 | Opción               | Efecto                                                                         | Default |
