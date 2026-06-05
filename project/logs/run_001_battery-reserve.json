@@ -1,0 +1,27 @@
+{
+  "mode": "battery-reserve",
+  "seed": 42,
+  "battery_reserve": [
+    {
+      "threshold": "0%",
+      "usable_kwh": 110.0,
+      "reserve_pct": 0.0,
+      "energy": 2750.67,
+      "visits": 38.23
+    },
+    {
+      "threshold": "10%",
+      "usable_kwh": 99.0,
+      "reserve_pct": 10.0,
+      "energy": 3230.0,
+      "visits": 37.8
+    },
+    {
+      "threshold": "20%",
+      "usable_kwh": 88.0,
+      "reserve_pct": 20.0,
+      "energy": 3286.4,
+      "visits": 39.2
+    }
+  ]
+}

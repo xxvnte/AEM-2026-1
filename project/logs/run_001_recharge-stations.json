@@ -1,0 +1,30 @@
+{
+  "mode": "recharge-stations",
+  "seed": 42,
+  "recharge_stations": [
+    {
+      "group": "R2",
+      "energy": null,
+      "visits": 26.5,
+      "n": 10
+    },
+    {
+      "group": "R4",
+      "energy": null,
+      "visits": 34.9,
+      "n": 10
+    },
+    {
+      "group": "R6",
+      "energy": null,
+      "visits": 43.1,
+      "n": 10
+    },
+    {
+      "group": "R8",
+      "energy": null,
+      "visits": 48.4,
+      "n": 10
+    }
+  ]
+}

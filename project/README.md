@@ -306,131 +306,229 @@ Salida:  Mejor solución encontrada S*
 
 ## Configuración de Parámetros
 
-Los valores iniciales de los parámetros se establecen en base a estándares de la literatura para algoritmos híbridos SA/TS en problemas de enrutamiento de vehículos.
+Los valores de los parámetros se calibran con base en la literatura y en el comportamiento observado sobre el banco de instancias del paper (Zhang et al., 2018).
 
-| Parámetro       | Descripción                                            | Valor inicial |
-| --------------- | ------------------------------------------------------ | ------------- |
-| $T_0$           | Temperatura inicial                                    | 20            |
-| $\alpha$        | Tasa de enfriamiento geométrico                        | 0.97          |
-| $T_{min}$       | Temperatura mínima de parada                           | 0.01          |
-| $K_{tabú}$      | Tenencia tabú (iteraciones de prohibición)             | 12            |
-| $\gamma_{cap}$  | Factor de penalización por violación de capacidad      | 200           |
-| $\gamma_{batt}$ | Factor de penalización por violación de batería        | 100           |
-| $\gamma_{miss}$ | Penalización por cliente no visitado (o duplicado)     | 5000          |
-| umbral          | Iteraciones consecutivas sin mejora global para parada | 50–100        |
+| Parámetro                    | Descripción                                                        | Valor  |
+| ---------------------------- | ------------------------------------------------------------------ | ------ |
+| $T_0$                        | Temperatura inicial SA                                             | 20     |
+| $\alpha$                     | Tasa de enfriamiento geométrico                                    | 0.97   |
+| $T_{min}$                    | Temperatura mínima de parada                                       | 0.01   |
+| $K_{tabú}$                   | Tenencia tabú (iteraciones de prohibición)                         | 12     |
+| `MAX_LABELS_DP`              | Máximo de etiquetas Pareto por paso en la DP                       | 20     |
+| `MAX_NEIGHBORHOOD_MOVES`     | Cap duro del vecindario por iteración SA/TS                        | 2000   |
+| `MAX_DIJKSTRA_POPS`          | Cota dura de expansiones por búsqueda Dijkstra                     | 200000 |
+| `--time-limit-run` (default) | Segundos máximos por corrida EH en `-large` y extras               | 300    |
+| `INIT_TIME_MAX_S`            | Tope absoluto de tiempo para la fase inicial (greedy + DP)         | 90     |
+| `INIT_TIME_FRACTION`         | Fracción del límite por corrida reservada solo a la inicialización | 0.30   |
+| $\gamma_{cap}$               | Factor de penalización por violación de capacidad                  | 200    |
+| $\gamma_{batt}$              | Factor de penalización por violación de batería                    | 100    |
+| $\gamma_{miss}$              | Penalización por cliente no visitado (o duplicado)                 | 5000   |
+| umbral                       | Iteraciones consecutivas sin mejora global para parada             | 100    |
+
+### Justificación de $T_0 = 20$ y $\alpha = 0.97$
+
+La **temperatura inicial** $T_0 = 20$ se elige de modo que, en la primera iteración, movimientos que empeoran la función objetivo en ~20 kWh se acepten con probabilidad $e^{-20/20} \approx 0.37$. Dado que la escala de las soluciones factibles del banco de instancias oscila entre 500 y 3000 kWh, esto representa un umbral de aceptación del orden del 0.5–4 % de la energía total, lo que equilibra exploración inicial con evitar aceptar soluciones muy malas.
+
+La **tasa de enfriamiento** $\alpha = 0.97$ produce el siguiente horizonte de iteraciones antes de que la temperatura sea inferior a $T_{min} = 0.01$:
+
+$$N_{iter} = \left\lfloor \frac{\ln(T_{min}/T_0)}{\ln \alpha} \right\rfloor = \left\lfloor \frac{\ln(0.0005)}{\ln(0.97)} \right\rfloor \approx 248 \text{ iteraciones}$$
+
+Esto otorga ~250 iteraciones de búsqueda (sin contar el criterio de parada por `umbral`). Para instancias pequeñas (C25, n≤25) este horizonte resulta suficiente para converger; para instancias grandes (C75–C150) la condición de `umbral=100` (sin mejora) suele activarse antes de que la temperatura llegue a $T_{min}$, actuando como criterio de parada anticipada. Este diseño es consistente con el rango de 200–300 iteraciones reportado en Küçükoğlu et al. (2019) para tamaños de problema similares.
+
+### Justificación de $K_{tabú} = 12$
+
+La **tenencia tabú** determina cuántas iteraciones un par (cliente, ruta de origen) permanece prohibido después de un movimiento. En TABUROUTE (Gendreau et al., 1994), el rango típico es $K_{tabú} \in [5, 15]$ con $K=7$ como referencia base. Para el EVRP el espacio de soluciones es mayor debido a la dimensión de las decisiones de recarga, lo que incrementa el riesgo de ciclado. El valor $K_{tabú} = 12$ se ubica en el cuartil superior de ese rango, lo que:
+
+- Prolonga suficientemente la prohibición para evitar ciclos de corto período.
+- Sigue siendo corto en comparación con el horizonte total de iteraciones (~250), de modo que la lista tabú no bloquea indefinidamente opciones buenas.
+- Es consistente con los valores de tenencia de 10–15 reportados por Küçükoğlu et al. (2019) para problemas EVRP de tamaño comparable.
+
+### `MAX_LABELS_DP = 20` y su impacto en velocidad
+
+El frente Pareto de la DP crece en el peor caso como $O(k \times f)$ por paso, donde $k$ es el número de etiquetas anteriores y $f$ el número de opciones de segmento. Sin la cota, para instancias C75–C150 la verificación de dominancia entre etiquetas puede alcanzar $O(k^2)$ comparaciones por paso con $k$ grande. Con `MAX_LABELS_DP=20` se pre-filtra a $40$ candidatos antes del chequeo Pareto y luego se recorta a las $20$ mejores por coste, limitando el tiempo por paso a $O(1600)$ comparaciones. El límite se redujo de 30 a 20 tras confirmar que las rutas de C75–C150 tienen más clientes por ruta y la precomputación de `_segment_need_end_battery` (24 llamadas Dijkstra por paso) hace que cada paso de DP sea costoso; con 20 etiquetas la calidad de recarga es prácticamente idéntica ya que el espacio Pareto relevante en R2 es pequeño (solo 2 estaciones). Adicionalmente, el DP ahora precomputa los valores `need_end` y `seg_nodes` fuera del bucle principal de etiquetas, y verifica el deadline en cada paso del precomputo y del DP; si el tiempo se agota se cae automáticamente al greedy de inserción rápida.
+
+### `MAX_NEIGHBORHOOD_MOVES = 2000` - cap duro del vecindario
+
+Con 75 clientes, el vecindario generado (RELOCATE + EXCHANGE + 2-OPT\*) puede superar los 15.000 movimientos. Sin cap, la evaluación de deltas por sí sola consume segundos por iteración. El cap duro de 2000 movimientos (tras el shuffle aleatorio que ya existía al 15 %) garantiza que la evaluación del vecindario no domina el presupuesto de tiempo por corrida, dejando margen para las llamadas DP de la fase de aceptación.
+
+### Límite de tiempo por corrida (`--time-limit-run`, default 300 s)
+
+El valor por defecto pasó de **120 s a 300 s** (5 min) para dar margen suficiente a instancias C75–C150 con varias estaciones de recarga (R4/R6/R8), donde en pruebas internas se obtienen soluciones **factibles** dentro de ese presupuesto (p. ej. C75R8-1 en ~40 s, C50R8-2 en ~27 s). Instancias C25/C50 suelen terminar mucho antes y no consumen los 300 s completos.
+
+**Reparto del presupuesto:** la fase inicial (greedy + DP de estaciones) usa como máximo `min(90 s, 30 % del límite)`; el resto queda para el bucle SA/TS hasta el límite total. Esto evita que la inicialización monopolice todo el tiempo en instancias difíciles (C75R2 con 2 estaciones lejanas).
+
+| Modo / caso                        | Máximo teórico por instancia (default 300 s)          |
+| ---------------------------------- | ----------------------------------------------------- |
+| `-large` (1 run)                   | ~300 s                                                |
+| `-large` (10 runs, p. ej. C75R2-1) | ~50 min                                               |
+| `recharge-stations`                | ~300 s                                                |
+| `battery-reserve` (3 niveles)      | ~15 min                                               |
+| `energy-vs-distance`               | ~300 s (solo EH; el solver de distancia es adicional) |
+
+Peor caso del banco `-large` completo (50 instancias × 10 runs × 300 s): ~42 h si todas llegaran al límite; en la práctica C25/C50 terminan antes y el total es menor.
+
+### Deadline global e interrupción dura de la búsqueda
+
+El límite se aplica mediante un **deadline global** verificado en `segment_path_options`, punto único por el que pasan todas las búsquedas Dijkstra costosas (DP, `min_start_battery_for_segment`, reparación y greedy). Al agotarse el tiempo se lanza `_DeadlineReached`, que desenrolla la pila al instante y devuelve la mejor solución hasta ese momento.
+
+Como defensa adicional, `_segment_path_search_core` limita cada búsqueda a `MAX_DIJKSTRA_POPS = 200 000` expansiones.
+
+> **C75R2 / C100R2 / C150R2 (solo 2 estaciones):** siguen siendo las más difíciles; con semilla fija pueden quedar como `INF` incluso con 300 s. El límite garantiza que **no se cuelgan** y que el banco avanza. Para forzar más exploración en esos casos: `--time-limit-run 0` (sin límite) o variar `--seed`.
 
 ---
 
 ## Requisitos
 
-El proyecto usa Python 3. Antes de ejecutar `main.py`, instala las dependencias desde la carpeta `project`:
+- **Python 3**
+- Dependencias del proyecto (`requirements.txt`)
+- **CPLEX vía amplpy** (solo necesario para el modo `-small`, como referencia óptima frente a EH-SA/TS; ver [Instancias pequeñas](#instancias-pequeñas--small))
+
+### 1. Dependencias Python
+
+Desde la carpeta `project`:
 
 ```bash
 cd project
 python -m pip install --user -r requirements.txt
 ```
 
----
+### 2. Solver CPLEX (referencia para `-small`)
 
-## Ejecución
-
-### Comandos principales
+CPLEX resuelve el MIP de energía en instancias pequeñas y sirve como **punto de referencia** para comparar EH-SA/TS (Gap, mapas, `comparative_NNN_small.txt`). No se ejecuta desde `main.py` sino que se usa `solve_cplex.py` por separado.
 
 ```bash
-cd project
-python main.py -small
-python main.py -large --runs 10 --seed 42
-python main.py -all
-python main.py --help
-```
-
-Con `-all` se ejecutan en secuencia: `-small` → `-large` → `recharge-stations` → `battery-reserve` → `energy-vs-distance` (mismo protocolo experimental que el paper (Zhang et al.), más los tres análisis de sensibilidad del paper).
-
-### Ejemplo: una instancia concreta
-
-```bash
-cd project
-python main.py single C25R2-1
-python main.py single C14R2 --seed 123
-```
-
-Salida en consola (y en `logs/run_NNN_single_C25R2-1.txt`): energía EH-SA/TS (kWh) si la solución es factible (`INFACTIBLE` en caso contrario), `f_gen`, tiempo, número de rutas y visitas a estaciones. Sirve para depurar o repetir un caso puntual.
-
-### Modos disponibles
-
-| Modo                 | Comando                             | Log / gráficos (`stats/<subcarpeta>/`, mismo prefijo que el log)                      |
-| -------------------- | ----------------------------------- | ------------------------------------------------------------------------------------- |
-| Pequeñas             | `python main.py -small`             | `logs/run_001_small.txt` (+ CPLEX aparte; gráficos: `stats_small.py`)                 |
-| Grandes              | `python main.py -large`             | `logs/run_001_large.txt`, `stats/large/run_001_large_*.png`                           |
-| Todo                 | `python main.py -all`               | `logs/run_001_all.txt`; gráficos en `large/` y `extras/` (pequeñas: `stats_small.py`) |
-| Estaciones           | `python main.py recharge-stations`  | `logs/...`, `stats/extras/..._recharge_bars.png`                                      |
-| Reserva batería      | `python main.py battery-reserve`    | `logs/...`, `stats/extras/..._battery_bars.png`                                       |
-| Energía vs distancia | `python main.py energy-vs-distance` | `logs/...`, `stats/extras/..._evd_*.png`                                              |
-| Una instancia        | `python main.py single <nombre>`    | `logs/...` (sin gráficos automáticos)                                                 |
-
-También aceptan forma sin guión (`small`, `large`, `all`) o con guión (`-recharge-stations`, etc.).
-
-Modos auxiliares (no entran en `-all`): `extended` (C10R2 y C11R2; forman parte de `-small`) y `bank` (55 instancias, solo EH-SA/TS).
-
-### Referencia CPLEX (AMPL)
-
-Solver MIP de energía para instancias pequeñas (referencia de optimalidad del paper). **No** se ejecuta desde `main.py`; usar `solve_cplex.py` con **amplpy** + módulo **CPLEX**.
-
-#### Instalación de AMPL y CPLEX (amplpy)
-
-Desde la carpeta `project` (o cualquier entorno Python 3):
-
-```bash
-# API de AMPL para Python
+# 1. Instalar la librería para Python
 python -m pip install amplpy --upgrade
 
-# Módulos de solvers (instalar al menos cplex; otros son opcionales)
+# 2. Instalar el módulo de CPLEX
 python -m amplpy.modules install cplex
+
+# 3. Activar licencia (UUID de ampl.com/ce o ampl.com/courses)
+python -m amplpy.modules activate <id-licencia>
 ```
 
-Licencia AMPL (necesaria para ejecutar solvers). Se obtiene en [ampl.com/ce](https://portal.ampl.com/external/?url=https://ampl.com/ce) o [ampl.com/courses](https://portal.ampl.com/external/?url=https://ampl.com/courses); el portal entrega un **UUID de activación**.
-
-```bash
-# Sustituye <TU-UUID-LICENCIA> por el código que te da AMPL
-python -m amplpy.modules activate <TU-UUID-LICENCIA>
-```
-
-Comprobar que AMPL y la licencia responden:
+Comprobar instalación:
 
 ```bash
 python -c "from amplpy import AMPL; ampl = AMPL(); print('AMPL OK')"
 ```
 
-`requirements.txt` ya incluye `amplpy`; con `pip install -r requirements.txt` se instala la API, pero **CPLEX y la licencia** se configuran con los comandos `amplpy.modules` de arriba.
+`requirements.txt` ya incluye `amplpy`, los pasos 2 y 3 configuran el solver y la licencia.
 
-#### Uso en este proyecto
+---
+
+## Ejecución
+
+Todos los comandos se ejecutan desde `project/`. Cada corrida guarda log y JSON en `logs/run_NNN_<modo>.txt` y `logs/run_NNN_<modo>.json` (NNN = 001, 002, …).
+
+### Ejecución de experimentos
+
+Ejecutar en este orden (o por separado):
 
 ```bash
 cd project
-python solve_cplex.py --build-small-dat
-python solve_cplex.py
-python solve_cplex.py C12R2 C14R2
+python main.py -small
+python main.py -large
+python main.py recharge-stations
+python main.py battery-reserve
+python main.py energy-vs-distance
 ```
 
-| Archivo                            | Rol                                           |
-| ---------------------------------- | --------------------------------------------- |
-| `model.mod`                        | Modelo AMPL                                   |
-| `instances/small_dat/<nombre>.dat` | Datos AMPL (generar con `--build-small-dat`)  |
-| `solve_cplex.py`                   | Batch CPLEX + generación opcional de `.dat`   |
-| `logs/run_NNN_small_cplex.txt`     | Traza y resumen CPLEX (numeración automática) |
-| `logs/run_NNN_<modo>.txt`          | Traza EH-SA/TS                                |
+| Modo                 | Comando                             | Qué hace                                               |
+| -------------------- | ----------------------------------- | ------------------------------------------------------ |
+| Pequeñas             | `python main.py -small`             | 15 instancias C10R2–C24R2 con EH-SA/TS                 |
+| Grandes              | `python main.py -large`             | 50 instancias C25–C150, 10 runs EH-SA/TS por instancia |
+| Estaciones           | `python main.py recharge-stations`  | Análisis por número de estaciones (R2/R4/R6/R8)        |
+| Reserva batería      | `python main.py battery-reserve`    | Análisis con reserva 0 % / 10 % / 20 %                 |
+| Energía vs distancia | `python main.py energy-vs-distance` | Comparación minimización energía vs distancia          |
 
-CPLEX: sin límite de tiempo; `mipgap=0.0001` (0,01 %). Por defecto, `solve_cplex.py` resuelve **C10R2–C24R2** (15 instancias).
+Opciones útiles: `--seed N` (default 42), `--runs N` (solo `-large`, default 10), `--time-limit-run N` (default 300 s). Ver tabla completa en [Opciones de línea de comandos](#opciones-de-línea-de-comandos).
 
-### Opciones
+Para ejecutar los cinco modos seguidos: `python main.py -all`.
 
-| Opción          | Efecto                                                            | Default |
-| --------------- | ----------------------------------------------------------------- | ------- |
-| `--seed N`      | Semilla base de EH-SA/TS; en `-large` deriva semillas por corrida | `42`    |
-| `--runs N`      | Número de corridas independientes en `-large`                     | `10`    |
-| `--help` / `-h` | Resumen de modos en consola (no crea log)                         | —       |
+### Gráficos (`stats.py`)
 
-En `-large`, las semillas son `base_seed + i × 9973` para `i = 0 … N-1` (reproducibilidad entre corridas).
+Tras cada corrida, genera los gráficos con `stats.py` a partir del JSON guardado (en `-small` también puede leer el log `.txt`). Sustituye `001` por el número de corrida (`run_001_…`).
+
+```bash
+python stats.py -small 001
+python stats.py -large 001
+python stats.py recharge-stations 001
+python stats.py battery-reserve 001
+python stats.py energy-vs-distance 001
+```
+
+Si se omite el número, `stats.py` usa el último run disponible.
+
+#### Gráficos generados por modo
+
+##### `-small` → `python stats.py -small 001`
+
+| Archivo                               | Contenido                                                                |
+| ------------------------------------- | ------------------------------------------------------------------------ |
+| `run_001_small_bars.png`              | Energía EH-SA/TS vs OR-Tools por instancia                               |
+| `run_001_small_gaps.png`              | Gap (%) EH vs CPLEX por instancia                                        |
+| `run_001_small_time_bars.png`         | Tiempo de ejecución por instancia                                        |
+| `run_001_small_iter_bars.png`         | Iteraciones SA/TS por instancia                                          |
+| `run_001_small_evo_iter_g1/g2/g3.png` | Evolución FO (best + current) vs iteraciones, grupos de 5                |
+| `run_001_small_evo_time_g1/g2/g3.png` | Evolución FO vs tiempo, grupos de 5                                      |
+| `run_001_small_map_g1/g2/g3.png`      | Mapas de rutas agrupados (5 instancias/PNG)                              |
+| `comparative_001_small.txt`           | Tabla comparativa EH-SA/TS vs CPLEX (requiere `run_001_small_cplex.txt`) |
+
+**Interpretación:** barras y gaps miden calidad y distancia al óptimo MIP; evolución muestra convergencia de SA/TS; mapas comparan rutas EH (naranja) vs referencia (morada).
+
+##### `-large` → `python stats.py -large 001`
+
+| Archivo                            | Contenido                                                        |
+| ---------------------------------- | ---------------------------------------------------------------- |
+| `run_001_large_rpd_bars.png`       | RPD medio (%) por instancia vs B\*                               |
+| `run_001_large_energy_bars.png`    | B\* y energía media por instancia                                |
+| `run_001_large_evo_iter_g<N>.png`  | Evolución FO vs iteraciones, grupos de 5                         |
+| `run_001_large_evo_time_g<N>.png`  | Evolución FO vs tiempo, grupos de 5                              |
+| `run_001_large_map_3runs_g<N>.png` | Mapas agrupados: mejor / representativo / peor run por instancia |
+
+**Interpretación:** RPD indica dispersión entre las 10 corridas; energía resume B\* y media; evolución y mapas muestran estabilidad y calidad de rutas en instancias grandes.
+
+##### `recharge-stations` → `python stats.py recharge-stations 001`
+
+| Archivo                                              | Contenido                           |
+| ---------------------------------------------------- | ----------------------------------- |
+| `run_001_recharge-stations_recharge_energy_bars.png` | Energía media por grupo R2/R4/R6/R8 |
+| `run_001_recharge-stations_recharge_visits_bars.png` | Visitas a estaciones por grupo      |
+| `run_001_recharge-stations_recharge_bars.png`        | Ambas series combinadas             |
+
+**Interpretación:** más estaciones suele reducir energía y visitas forzadas; barras `inf` o vacías indican instancias sin solución factible en ese grupo.
+
+##### `battery-reserve` → `python stats.py battery-reserve 001`
+
+| Archivo                                           | Contenido                                     |
+| ------------------------------------------------- | --------------------------------------------- |
+| `run_001_battery-reserve_battery_energy_bars.png` | Energía media por nivel de reserva 0%/10%/20% |
+| `run_001_battery-reserve_battery_visits_bars.png` | Visitas a estaciones por nivel de reserva     |
+| `run_001_battery-reserve_battery_bars.png`        | Ambas series combinadas                       |
+
+**Interpretación:** mayor reserva implica menos batería usable y, en general, más energía y más paradas en estaciones.
+
+##### `energy-vs-distance` → `python stats.py energy-vs-distance 001`
+
+| Archivo                                         | Contenido                                   |
+| ----------------------------------------------- | ------------------------------------------- |
+| `run_001_energy-vs-distance_evd_bars_g1–g4.png` | E_min vs E_dist por grupo de 10 instancias  |
+| `run_001_energy-vs-distance_evd_pct_g1–g4.png`  | % incremento energía al minimizar distancia |
+| `run_001_energy-vs-distance_evd_time_g1–g4.png` | Tiempo de ejecución EH por grupo            |
+
+**Interpretación:** si E_dist > E_min, minimizar distancia empeora la energía; el % positivo cuantifica ese sobrecoste. Valores `nan` o barras vacías = al menos una corrida infactible.
+
+### Opciones de línea de comandos
+
+| Opción               | Efecto                                                                         | Default |
+| -------------------- | ------------------------------------------------------------------------------ | ------- |
+| `--seed N`           | Semilla base de EH-SA/TS; en `-large` deriva semillas por corrida              | `42`    |
+| `--runs N`           | Número de corridas independientes en `-large`                                  | `10`    |
+| `--time-limit-run N` | Segundos máximos por corrida en `-large` y experimentos extra (0 = sin límite) | `300`   |
+| `--help` / `-h`      | Resumen de modos en consola (no crea log)                                      | —       |
+
+En `-large`, las semillas son `base_seed + i × 9973` para `i = 0 … N-1`.
 
 ---
 
@@ -440,6 +538,9 @@ Las métricas siguen la notación de Zhang et al. (2018).
 
 - **Pequeñas:** `main.py -small` solo ejecuta **EH-SA/TS** (`logs/run_NNN_small.txt`). La referencia MIP óptima es **CPLEX** vía `solve_cplex.py` (`logs/run_NNN_small_cplex.txt`). El análisis comparativo (p. ej. Absolute Gap) se hace cruzando ambos logs.
 - **Grandes:** solo **EH-SA/TS** con varias corridas (runs); el RPD se calcula **entre runs del mismo algoritmo**.
+- **Estaciones de recarga:** una corrida EH-SA/TS por instancia grande, agregada por grupos R2/R4/R6/R8.
+- **Reserva de batería:** el banco grande repetido con reserva 0 % / 10 % / 20 %.
+- **Energía vs distancia:** por instancia, EH minimizando energía frente a una variante greedy minimizando distancia.
 
 ### Instancias pequeñas (`-small`)
 
@@ -453,7 +554,7 @@ Las métricas siguen la notación de Zhang et al. (2018).
 **Log referencia CPLEX** (`logs/run_NNN_small_cplex.txt`, script aparte):
 
 - Energía MIP (kWh), tiempo de solver, estado (óptimo / factible / infactible) por instancia.
-- Línea `Rutas CPLEX <inst>: [...]` por instancia (para mapas en `stats_small.py`).
+- Línea `Rutas CPLEX <inst>: [...]` por instancia (para mapas en `stats.py -small`).
 - Tabla resumen al final del batch CPLEX.
 
 **Gap (análisis manual):** con energía factible de EH y referencia CPLEX,
@@ -462,40 +563,17 @@ $$\text{Gap} = \frac{E_{\text{EH}} - E_{\text{ref}}}{E_{\text{ref}}} \times 100\
 
 Valores positivos indican que EH-SA/TS consume más que el óptimo MIP.
 
-### Gráficos (`stats/`)
-
-Si `matplotlib` está instalado (`requirements.txt`), `main.py` genera PNG en `stats/large/` y `stats/extras/` al terminar `-large`, los tres experimentos de sensibilidad o `-all` (bloques grandes y extras). **No** genera gráficos de instancias pequeñas.
-
-#### Pequeñas: `stats_small.py` (EH + CPLEX desde logs)
-
-Tras tener el par de logs del mismo número de run:
+**Ejecutar CPLEX** (tras instalar según [Requisitos](#requisitos)):
 
 ```bash
-python main.py -small
-python solve_cplex.py
-python stats_small.py          # último run emparejado
-python stats_small.py 001      # run_001_small.txt + run_001_small_cplex.txt
-python stats_small.py --no-maps   # solo barras y gaps
+cd project
+python solve_cplex.py --build-small-dat   # genera instances/small_dat/*.dat (una vez)
+python solve_cplex.py                     # batch C10R2–C24R2 → logs/run_NNN_small_cplex.txt
 ```
 
-| Archivo en `stats/small/`      | Contenido                                              |
-| ------------------------------ | ------------------------------------------------------ |
-| `run_NNN_small_bars.png`       | Energía CPLEX vs EH-SA/TS                              |
-| `run_NNN_small_gaps.png`       | Absolute Gap % (EH vs CPLEX)                           |
-| `run_NNN_small_map_<inst>.png` | Mapa CPLEX (sólido) + EH-SA/TS (discontinuo)           |
-| `comparative_NNN_small.txt`    | Tabla energía, tiempo y Gap % (EH vs CPLEX desde logs) |
+CPLEX usa `mipgap=0.0001` (0,01 %) sin límite de tiempo. Archivos: `model.mod`, `solve_cplex.py`, `instances/small_dat/<nombre>.dat`.
 
-Los mapas usan rutas CPLEX del log (`Rutas CPLEX <inst>: ...` en `run_NNN_small_cplex.txt`); si no están, `stats_small.py` puede re-resolver CPLEX solo para extraer rutas. Las rutas EH se reproducen con la semilla del log EH.
-
-| Subcarpeta      | Quién escribe ahí                                                                | Archivos típicos                                                             |
-| --------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `stats/small/`  | `stats_small.py`                                                                 | `*_bars.png`, `*_gaps.png`, `*_map_<instancia>.png`                          |
-| `stats/large/`  | `main.py` (`-large`, `-all`)                                                     | `*_rpd_bars.png`, `*_energy_bars.png`, `*_map_<instancia>.png` (ruta EH B\*) |
-| `stats/extras/` | `main.py` (`recharge-stations`, `battery-reserve`, `energy-vs-distance`, `-all`) | `*_recharge_bars.png`, `*_battery_bars.png`, `*_evd_*.png`                   |
-
-En `-large`, mapa por instancia del banco grande (~40) con la **mejor corrida EH-SA/TS (B\*)**.
-
-Leyenda en mapas pequeños: depósito (cuadrado rojo), estaciones (triángulo verde), clientes (círculo azul); CPLEX línea sólida morada; EH-SA/TS línea discontinua naranja.
+Los gráficos y su interpretación están en [Gráficos (`stats.py`)](#gráficos-statspy) (sección Ejecución). Leyenda en mapas: depósito (cuadrado rojo), estaciones (triángulo verde), clientes (círculo azul); referencia CPLEX/OR-Tools (morada continua); EH-SA/TS (naranja discontinua).
 
 ### Instancias grandes (`-large`)
 
@@ -512,28 +590,70 @@ Leyenda en mapas pequeños: depósito (cuadrado rojo), estaciones (triángulo ve
 | **RPD media / RPD máx** | Promedio y máximo de los RPD por instancia                                                                                                              |
 | Detalle                 | Energías `R1=… R2=…` y RPD `%` por corrida                                                                                                              |
 
-### Pipeline completo (`-all`)
+### Estaciones de recarga (`recharge-stations`)
 
-Un solo log (`run_NNN_all.txt`) con los cinco bloques anteriores en orden, útil para reproducir el experimento de una vez.
+**Qué se ejecuta:** las **40 instancias grandes** (`C25` … `C150`, variantes R2/R4/R6/R8 y sufijos `-1`/`-2`). Una corrida EH-SA/TS por instancia (semilla base, límite por defecto 300 s). Al final se agregan los resultados en cuatro grupos según el número de estaciones de recarga: **R2, R4, R6, R8** (10 instancias por grupo).
 
-### `recharge-stations`
+**Qué debe aparecer en el log** (`logs/run_NNN_recharge-stations.txt`):
 
-EH-SA/TS sobre todas las instancias grandes, agrupadas por número de estaciones **R2, R4, R6, R8**.
+- Detalle por instancia: energía EH-SA/TS (kWh) o **`INFACTIBLE`**, tiempo, visitas a estaciones; marca `(TL)` si alcanza el límite de tiempo.
+- Tabla resumen al final con una fila por grupo:
 
-**Métricas:** energía media (kWh) y visitas medias a estaciones por grupo, con conteo `n` de instancias por grupo.
+| Métrica     | Definición                                                                    |
+| ----------- | ----------------------------------------------------------------------------- |
+| **Energía** | Media de energía (kWh) en el grupo; instancias infactibles cuentan como `inf` |
+| **VisEst**  | Media de visitas a estaciones de recarga en el grupo                          |
+| **n**       | Número de instancias del grupo (10 por R2/R4/R6/R8)                           |
 
-### `battery-reserve`
+**Interpretación:** compara cómo cambia el consumo y la frecuencia de recarga al variar la densidad de estaciones. Gráficos en [Gráficos (`stats.py`)](#gráficos-statspy) → `recharge-stations`.
 
-Mismo banco grande con tres niveles de **reserva mínima de batería**: 0 %, 10 % y 20 % (capacidad usable 110 / 99 / 88 kWh).
+### Reserva de batería (`battery-reserve`)
 
-**Métricas:** energía media y visitas medias a estaciones por nivel de reserva.
+**Qué se ejecuta:** el mismo banco de **40 instancias grandes**, repetido para **tres niveles de reserva mínima** de batería al salir de cada estación. En total son 120 corridas EH-SA/TS (40 instancias × 3 niveles), con la misma semilla base y límite de 300 s por corrida.
 
-### `energy-vs-distance`
+| Nivel | Reserva                      | Capacidad usable |
+| ----- | ---------------------------- | ---------------- |
+| `0%`  | Sin reserva extra            | 110 kWh          |
+| `10%` | 10 % de la batería reservada | 99 kWh           |
+| `20%` | 20 % reservada               | 88 kWh           |
 
-Por instancia: minimización de **energía** (EH-SA/TS estándar) frente a una variante que prioriza **distancia** y luego evalúa energía.
+**Qué debe aparecer en el log** (`logs/run_NNN_battery-reserve.txt`):
 
-**Métricas:** \(E*{\min}\), \(E*{\text{dist}}\) y **% de incremento** de energía al usar la solución orientada a distancia:
+- Detalle por instancia con prefijo de nivel (`[0%]`, `[10%]`, `[20%]`): energía o **`INFACTIBLE`**, tiempo, visitas a estaciones.
+- Tabla resumen con una fila por nivel:
+
+| Métrica     | Definición                                                                        |
+| ----------- | --------------------------------------------------------------------------------- |
+| **Usable**  | Capacidad efectiva (kWh) tras aplicar la reserva                                  |
+| **Energía** | Media de energía (kWh) sobre las 40 instancias; solo se promedian valores finitos |
+| **VisEst**  | Media de visitas a estaciones en ese nivel                                        |
+
+**Interpretación:** cuantifica el coste energético de exigir más margen de batería (más paradas y mayor consumo). Gráficos en [Gráficos (`stats.py`)](#gráficos-statspy) → `battery-reserve`.
+
+### Energía vs distancia (`energy-vs-distance`)
+
+**Qué se ejecuta:** las **40 instancias grandes**, una por una. Por instancia se comparan dos enfoques:
+
+1. **E_min** — EH-SA/TS estándar minimizando energía (semilla base, límite 300 s).
+2. **E_dist** — construcción greedy orientada a **distancia** + inserción DP de estaciones; se evalúa la energía resultante (semilla `base + 1`, sin límite de tiempo adicional).
+
+**Qué debe aparecer en el log** (`logs/run_NNN_energy-vs-distance.txt`):
+
+| Métrica    | Definición                                                               |
+| ---------- | ------------------------------------------------------------------------ |
+| **E_min**  | Mejor energía factible de EH-SA/TS (kWh), o `inf` si no hay solución     |
+| **E_dist** | Energía (kWh) de la ruta construida minimizando distancia                |
+| **% inc**  | Incremento relativo de energía al usar la solución orientada a distancia |
+| **t(s)**   | Tiempo total de ambas fases por instancia                                |
+
+**% de incremento:**
 
 $$\% = \frac{E_{\text{dist}} - E_{\min}}{E_{\min}} \times 100\%$$
 
----
+Valores **positivos** indican que minimizar distancia consume más energía que minimizarla directamente. Valores **negativos** o `nan%` aparecen cuando \(E\_{\min}\) es infactible o la comparación no es válida. Al final del log, fila **Promedio** con la media del % sobre las 40 instancias.
+
+**Interpretación:** mide el sobrecoste energético de priorizar distancia en lugar de energía. Gráficos agrupados (10 instancias/PNG) en [Gráficos (`stats.py`)](#gráficos-statspy) → `energy-vs-distance`.
+
+### Pipeline completo (`-all`)
+
+Un solo log (`run_NNN_all.txt`) con los cinco bloques anteriores en orden (`-small` → `-large` → `recharge-stations` → `battery-reserve` → `energy-vs-distance`), para reproducir el experimento completo de una vez.

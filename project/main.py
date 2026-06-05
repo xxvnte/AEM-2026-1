@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import heapq
+import json
 import math
 import random
 import re
@@ -43,12 +44,30 @@ T0 = 20.0
 ALPHA_COOLING = 0.97
 T_MIN = 0.01
 K_TABU = 12
+MAX_LABELS_DP = 20
+MAX_NEIGHBORHOOD_MOVES = 2000
 GAMMA_CAP = 200.0
 GAMMA_BATT = 100.0
 GAMMA_MISS = 5000.0
 UMBRAL = 100
 
 LARGE_NUM_RUNS_DEFAULT = 10
+LARGE_RUN_TIME_LIMIT_S = 300.0
+INIT_TIME_MAX_S = 90.0
+INIT_TIME_FRACTION = 0.30
+
+_DEADLINE: float | None = None
+
+MAX_DIJKSTRA_POPS = 200_000
+
+
+class _DeadlineReached(Exception):
+    """Señal interna para abortar la búsqueda cuando se agota el tiempo por corrida."""
+
+
+def _deadline_passed() -> bool:
+    return _DEADLINE is not None and time.time() >= _DEADLINE
+
 
 BATTERY_RESERVE_LEVELS = {"0%": 0.0, "10%": 10.0, "20%": 20.0}
 
@@ -748,6 +767,8 @@ def segment_path_options(
     min_end_batt: float = 0.0,
     reserve_kwh: float = 0.0,
 ) -> list[tuple[float, list[int], float]]:
+    if _DEADLINE is not None and time.time() >= _DEADLINE:
+        raise _DeadlineReached()
     direct = _segment_path_search_core(
         from_i,
         to_j,
@@ -833,7 +854,11 @@ def _segment_path_search_core(
         max(min_end_batt, reserve_kwh) if not is_charge_node(vertices[to_j]) else 0.0
     )
 
+    pops = 0
     while pq:
+        pops += 1
+        if pops > MAX_DIJKSTRA_POPS:
+            break
         cost, u, batt = heapq.heappop(pq)
         key = (u, round(batt, 4))
         if best_cost.get(key, 1e18) < cost - 1e-9:
@@ -1317,23 +1342,36 @@ def dp_station_insertion(
     station_idxs: list[int],
     depot_idxs: list[int],
     reserve_pct: float = 0.0,
+    max_labels: int = MAX_LABELS_DP,
+    t_deadline: float | None = None,
 ) -> list[int]:
     if len(client_seq) < 2:
         return list(client_seq)
     reserve_kwh = battery_reserve_kwh(reserve_pct)
     n = len(client_seq)
+
+    precomp: list[tuple[list[int], float, float]] = []
+    for step in range(n - 1):
+        if t_deadline is not None and time.time() >= t_deadline:
+            raise _DeadlineReached()
+        node_j = client_seq[step + 1]
+        seg_nodes = charge_nodes_for_segment(node_j, station_idxs, depot_idxs)
+        need_end = _segment_need_end_battery(
+            client_seq, step + 1, vertices, arcs, station_idxs, depot_idxs, reserve_kwh
+        )
+        load = load_leaving_position(client_seq, step, vertices)
+        precomp.append((seg_nodes, need_end, load))
+
     labels: dict[int, list[tuple[float, float, list[int]]]] = {
         0: [(BATTERY_CAPACITY_KWH, 0.0, [client_seq[0]])]
     }
 
     for step in range(n - 1):
+        if t_deadline is not None and time.time() >= t_deadline:
+            raise _DeadlineReached()
         node_i = client_seq[step]
         node_j = client_seq[step + 1]
-        load = load_leaving_position(client_seq, step, vertices)
-        seg_nodes = charge_nodes_for_segment(node_j, station_idxs, depot_idxs)
-        need_end = _segment_need_end_battery(
-            client_seq, step + 1, vertices, arcs, station_idxs, depot_idxs, reserve_kwh
-        )
+        seg_nodes, need_end, load = precomp[step]
         new_labels: list[tuple[float, float, list[int]]] = []
         for batt, cost, path in labels[step]:
             for seg_e, seg_path, end_batt in segment_path_options(
@@ -1353,6 +1391,9 @@ def dp_station_insertion(
             return greedy_station_insert_route(
                 client_seq, vertices, arcs, station_idxs, depot_idxs, reserve_pct
             )
+        if len(new_labels) > max_labels * 4:
+            new_labels.sort(key=lambda t: (-t[0], t[1]))
+            new_labels = new_labels[: max_labels * 2]
         pareto: list[tuple[float, float, list[int]]] = []
         for cand in new_labels:
             dominated = False
@@ -1365,6 +1406,9 @@ def dp_station_insertion(
                         break
             if not dominated:
                 pareto.append(cand)
+        if len(pareto) > max_labels:
+            pareto.sort(key=lambda t: t[1])
+            pareto = pareto[:max_labels]
         labels[step + 1] = pareto
 
     final = labels[n - 1]
@@ -1621,6 +1665,7 @@ def apply_accepted_move_with_dp(
     station_idxs: list[int],
     depot_idxs: list[int],
     reserve_pct: float = 0.0,
+    t_deadline: float | None = None,
 ) -> list[list[int]]:
     trial = apply_move(copy.deepcopy(client_routes), move)
     for ri in affected_routes_after_apply(move, client_routes):
@@ -1632,6 +1677,7 @@ def apply_accepted_move_with_dp(
                 station_idxs,
                 depot_idxs,
                 reserve_pct,
+                t_deadline=t_deadline,
             )
     return trial
 
@@ -1743,20 +1789,33 @@ def build_routes_with_dp(
     station_idxs: list[int],
     depot_idxs: list[int],
     reserve_pct: float = 0.0,
+    t_deadline: float | None = None,
 ) -> list[list[int]]:
     full_routes = []
     for route in client_routes:
-        inserted = dp_station_insertion(
-            route, vertices, arcs, station_idxs, depot_idxs, reserve_pct
-        )
-        report = validate_solution([inserted], vertices, arcs, reserve_pct)
-        if not report["feasible"]:
-            inserted = greedy_station_insert_route(
-                route, vertices, arcs, station_idxs, depot_idxs, reserve_pct
+        if _deadline_passed():
+            full_routes.append(list(route))
+            continue
+        try:
+            inserted = dp_station_insertion(
+                route,
+                vertices,
+                arcs,
+                station_idxs,
+                depot_idxs,
+                reserve_pct,
+                t_deadline=t_deadline,
             )
-        inserted = repair_route_battery(
-            inserted, vertices, arcs, station_idxs, depot_idxs, reserve_pct
-        )
+            report = validate_solution([inserted], vertices, arcs, reserve_pct)
+            if not report["feasible"]:
+                inserted = greedy_station_insert_route(
+                    route, vertices, arcs, station_idxs, depot_idxs, reserve_pct
+                )
+            inserted = repair_route_battery(
+                inserted, vertices, arcs, station_idxs, depot_idxs, reserve_pct
+            )
+        except _DeadlineReached:
+            inserted = list(route)
         full_routes.append(inserted)
     return full_routes
 
@@ -1882,7 +1941,7 @@ def generate_neighborhood(
                 moves.append(Move(MoveKind.STATION_INRE, r, pos, r, ins, station=st))
 
     rng.shuffle(moves)
-    cap = max(200, int(len(moves) * 0.15))
+    cap = min(MAX_NEIGHBORHOOD_MOVES, max(200, int(len(moves) * 0.15)))
     return moves[:cap]
 
 
@@ -1913,6 +1972,8 @@ def run_eh_sats(
     verbose: bool = False,
     battery_reserve_pct: float = 0.0,
     instance_name: str | None = None,
+    time_limit_s: float | None = None,
+    collect_history: bool = False,
 ) -> tuple[list[list[int]], float, float, dict]:
     vertices = {v.idx: v for v in vertices_list}
     station_idxs = [v.idx for v in vertices_list if v.is_station]
@@ -1920,11 +1981,28 @@ def run_eh_sats(
     depot_start = depot_idxs[0]
     depot_end = depot_idxs[-1] if len(depot_idxs) > 1 else depot_idxs[0]
 
+    global _DEADLINE
+    t_start = time.time()
+    t_deadline = (t_start + time_limit_s) if time_limit_s is not None else None
+    if t_deadline is not None:
+        init_budget = min(INIT_TIME_MAX_S, time_limit_s * INIT_TIME_FRACTION)
+        t_deadline_init = t_start + init_budget
+    else:
+        t_deadline_init = None
+    _DEADLINE = t_deadline_init
+
     rng = random.Random(seed)
     client_routes = greedy_build(vertices, arcs, depot_start, depot_end, rng)
     full_routes = build_routes_with_dp(
-        client_routes, vertices, arcs, station_idxs, depot_idxs, battery_reserve_pct
+        client_routes,
+        vertices,
+        arcs,
+        station_idxs,
+        depot_idxs,
+        battery_reserve_pct,
+        t_deadline=t_deadline_init,
     )
+    _DEADLINE = t_deadline
     client_routes = strip_client_routes(full_routes, vertices)
     current_f = f_gen_solution(full_routes, vertices, arcs, battery_reserve_pct)
 
@@ -1945,8 +2023,11 @@ def run_eh_sats(
     tabu_iter = 0
     temperature = T0
     iter_sin_mejora = 0
+    history: list[dict] = []
 
     while temperature > T_MIN and iter_sin_mejora < UMBRAL:
+        if t_deadline is not None and time.time() >= t_deadline:
+            break
         tabu_iter += 1
         expired = [k for k, v in tabu.items() if v <= tabu_iter]
         for k in expired:
@@ -1963,6 +2044,8 @@ def run_eh_sats(
         chosen: Move | None = None
 
         for move in neighborhood:
+            if t_deadline is not None and time.time() >= t_deadline:
+                break
             if any(tabu.get(k, 0) > tabu_iter for k in move.tabu_keys()):
                 continue
             delta = delta_approx_move(
@@ -1972,20 +2055,27 @@ def run_eh_sats(
                 best_delta = delta
                 chosen = move
 
+        if t_deadline is not None and time.time() >= t_deadline:
+            break
+
         if chosen is None:
             iter_sin_mejora += 1
             temperature *= ALPHA_COOLING
             continue
 
-        trial_full = apply_accepted_move_with_dp(
-            client_routes,
-            chosen,
-            vertices,
-            arcs,
-            station_idxs,
-            depot_idxs,
-            battery_reserve_pct,
-        )
+        try:
+            trial_full = apply_accepted_move_with_dp(
+                client_routes,
+                chosen,
+                vertices,
+                arcs,
+                station_idxs,
+                depot_idxs,
+                battery_reserve_pct,
+                t_deadline=t_deadline,
+            )
+        except _DeadlineReached:
+            break
         trial_struct_f = f_gen_solution(trial_full, vertices, arcs, battery_reserve_pct)
         delta_e = trial_struct_f - current_f
         accept = delta_e <= 0 or rng.random() < math.exp(
@@ -2017,16 +2107,29 @@ def run_eh_sats(
             iter_sin_mejora += 1
 
         temperature *= ALPHA_COOLING
+        if collect_history:
+            history.append(
+                {
+                    "iter": tabu_iter,
+                    "t": round(time.time() - t_start, 3),
+                    "current_f": round(current_f, 4),
+                    "best_f": round(best_f, 4),
+                }
+            )
         if verbose and tabu_iter % 20 == 0:
             print(
                 f"  iter={tabu_iter} T={temperature:.4f} f={current_f:.2f} best={best_f:.2f}"
             )
+
+    _DEADLINE = None
 
     final_energy = exact_energy_solution(
         best_routes, vertices, arcs, battery_reserve_pct
     )
     validation = validate_solution(best_routes, vertices, arcs, battery_reserve_pct)
     validation["fgen"] = best_f
+    validation["iterations"] = tabu_iter
+    validation["history"] = history
     validation["infeasible_candidate"] = None
     validation["feasible_alternative"] = None
     if not validation["feasible"]:
@@ -2062,6 +2165,8 @@ def _run_eh_on_instance(
     name: str,
     seed: int,
     battery_reserve_pct: float = 0.0,
+    time_limit_s: float | None = None,
+    collect_history: bool = False,
 ) -> dict:
     n_c, n_s = parse_instance_name(name)
     vertices, arcs = load_instance(name)
@@ -2072,6 +2177,8 @@ def _run_eh_on_instance(
         seed=seed,
         battery_reserve_pct=battery_reserve_pct,
         instance_name=name,
+        time_limit_s=time_limit_s,
+        collect_history=collect_history,
     )
     t_s = time.time() - t0
     vmap = {v.idx: v for v in vertices}
@@ -2090,6 +2197,8 @@ def _run_eh_on_instance(
         missing_customers=len(validation["missing_customers"]),
         battery_violation_kwh=round(validation["battery_violation_kwh"], 4),
         capacity_violation_kg=round(validation["capacity_violation_kg"], 4),
+        iterations=validation.get("iterations", 0),
+        history=validation.get("history", []),
     )
 
 
@@ -2165,7 +2274,7 @@ def run_small_benchmark(seed: int = 42) -> list[dict]:
 
     results = []
     for name in SMALL_INSTANCES:
-        row = _run_eh_on_instance(name, seed)
+        row = _run_eh_on_instance(name, seed, collect_history=True)
         row["eh_routes"] = row.get("eh_paths", [])
         results.append(row)
         energy_text = (
@@ -2206,12 +2315,17 @@ def run_small_benchmark(seed: int = 42) -> list[dict]:
 def run_large_multi_run(
     base_seed: int = 42,
     num_runs: int = LARGE_NUM_RUNS_DEFAULT,
+    time_limit_s_per_run: float | None = LARGE_RUN_TIME_LIMIT_S,
 ) -> list[dict]:
     """Grandes: multi-run EH-SA/TS; RPD relativo vs B* (mejor corrida), estilo Tabla 3."""
     seeds = _large_run_seeds(base_seed, num_runs)
     print("\n" + "=" * 105)
     print("MODO -large | INSTANCIAS GRANDES (C25-C150)")
     print(f"EH-SA/TS: {num_runs} runs, semillas distintas")
+    if time_limit_s_per_run is not None:
+        print(
+            f"Límite por corrida: {time_limit_s_per_run:.0f}s (ajustable con --time-limit-run)"
+        )
     print("=" * 105)
     print("Métricas (RPD entre soluciones; solo EH-SA/TS):")
     print("  B*       = min(E_run)  mejor energía entre los runs")
@@ -2227,23 +2341,35 @@ def run_large_multi_run(
 
     summary = []
     for name in LARGE_INSTANCES:
-        energies: list[float] = []
-        times: list[float] = []
-        best_eh_paths: list[list[int]] | None = None
-        best_energy_so_far = float("inf")
-        for run_seed in seeds:
-            row = _run_eh_on_instance(name, run_seed)
-            energies.append(row["energy"])
-            times.append(row["time_s"])
-            e_run = row["energy"]
-            if e_run is not None and e_run < best_energy_so_far:
-                best_energy_so_far = e_run
-                best_eh_paths = row.get("eh_paths")
+        all_rows: list[dict] = []
+        for run_idx, run_seed in enumerate(seeds, start=1):
+            print(f"  {name} run {run_idx}/{num_runs}...", end=" ", flush=True)
+            row = _run_eh_on_instance(
+                name,
+                run_seed,
+                time_limit_s=time_limit_s_per_run,
+                collect_history=True,
+            )
+            tl = (
+                " (TL)"
+                if time_limit_s_per_run and row["time_s"] >= time_limit_s_per_run - 1
+                else ""
+            )
+            print(f"{row['time_s']:.1f}s{tl}")
+            all_rows.append(row)
 
-        finite_energies = [e for e in energies if e is not None and math.isfinite(e)]
+        energies = [r["energy"] for r in all_rows]
+        times = [r["time_s"] for r in all_rows]
+        finite_rows = [
+            r
+            for r in all_rows
+            if r["energy"] is not None and math.isfinite(r["energy"])
+        ]
+        finite_energies = [r["energy"] for r in finite_rows]
         total_t = sum(times)
         if finite_energies:
             best = min(finite_energies)
+            worst_val = max(finite_energies)
             mean_e = statistics.mean(finite_energies)
             std_e = (
                 statistics.stdev(finite_energies) if len(finite_energies) > 1 else 0.0
@@ -2256,29 +2382,42 @@ def run_large_multi_run(
             std_disp = f"{std_e:>8.2f}"
             rpd_mean_disp = f"{mean_rpd:>9.2f}%"
             rpd_max_disp = f"{max_rpd:>8.2f}%"
+            best_row = min(finite_rows, key=lambda r: r["energy"])
+            worst_row = max(finite_rows, key=lambda r: r["energy"])
+            avg_row = min(finite_rows, key=lambda r: abs(r["energy"] - mean_e))
         else:
-            best = mean_e = std_e = mean_rpd = max_rpd = float("nan")
+            best = worst_val = mean_e = std_e = mean_rpd = max_rpd = float("nan")
             rpds = []
             best_disp = f"{'INFACT':>10}"
             mean_disp = f"{'N/A':>10}"
             std_disp = f"{'N/A':>8}"
             rpd_mean_disp = f"{'N/A':>10}"
             rpd_max_disp = f"{'N/A':>9}"
+            best_row = worst_row = avg_row = None
 
         entry = dict(
             instance=name,
             seeds=seeds,
             energies=energies,
             best=round(best, 2) if finite_energies else None,
+            worst=round(worst_val, 2) if finite_energies else None,
             mean=round(mean_e, 2) if finite_energies else None,
             std=round(std_e, 2) if finite_energies else None,
             mean_rpd=round(mean_rpd, 2) if finite_energies else None,
             max_rpd=round(max_rpd, 2) if finite_energies else None,
             total_time_s=round(total_t, 2),
             all_infeasible=not finite_energies,
+            best_routes=best_row["eh_paths"] if best_row else None,
+            worst_routes=worst_row["eh_paths"] if worst_row else None,
+            avg_routes=avg_row["eh_paths"] if avg_row else None,
+            best_energy=best_row["energy"] if best_row else None,
+            worst_energy=worst_row["energy"] if worst_row else None,
+            avg_energy=avg_row["energy"] if avg_row else None,
+            best_history=best_row["history"] if best_row else [],
+            worst_history=worst_row["history"] if worst_row else [],
         )
-        if best_eh_paths is not None:
-            entry["eh_routes"] = best_eh_paths
+        if best_row:
+            entry["eh_routes"] = best_row["eh_paths"]
         summary.append(entry)
         print(
             f"{name:<14} {best_disp} {mean_disp} {std_disp} "
@@ -2336,18 +2475,24 @@ def run_own_bank(seed=42):
     )
 
 
-def run_recharge_stations(seed=42):
+def run_recharge_stations(seed=42, time_limit_s: float | None = LARGE_RUN_TIME_LIMIT_S):
     print("\n" + "=" * 65)
     print("MODO recharge-stations | Análisis por número de estaciones (EH-SA/TS)")
+    if time_limit_s:
+        print(f"  Límite por instancia: {time_limit_s:.0f}s")
     print("=" * 65)
     print(f"{'Grupo':>6} {'Energía':>12} {'VisEst':>10} {'n':>4}")
     print("-" * 40)
     groups: dict[str, list] = {"R2": [], "R4": [], "R6": [], "R8": []}
-    for name in LARGE_INSTANCES:
+    total = len(LARGE_INSTANCES)
+    for idx, name in enumerate(LARGE_INSTANCES, start=1):
         _, n_s = parse_instance_name(name)
         key = f"R{n_s}"
-        row = _run_eh_on_instance(name, seed)
-        groups[key].append((row["energy"], row["station_visits"]))
+        print(f"  {name} ({idx}/{total})...", end=" ", flush=True)
+        row = _run_eh_on_instance(name, seed, time_limit_s=time_limit_s)
+        tl_tag = " (TL)" if time_limit_s and row["time_s"] >= time_limit_s - 1 else ""
+        print(f"{row['time_s']:.1f}s{tl_tag}")
+        groups[key].append((row["energy"] or float("inf"), row["station_visits"]))
     results = []
     for g, data in groups.items():
         avg_e = sum(d[0] for d in data) / len(data)
@@ -2359,22 +2504,35 @@ def run_recharge_stations(seed=42):
     return results
 
 
-def run_battery_reserve(seed=42):
+def run_battery_reserve(seed=42, time_limit_s: float | None = LARGE_RUN_TIME_LIMIT_S):
     print("\n" + "=" * 65)
     print("MODO battery-reserve | Reserva mínima de batería (EH-SA/TS)")
+    if time_limit_s:
+        print(f"  Límite por instancia: {time_limit_s:.0f}s")
     print("=" * 65)
     print("Reserva: 0% → 110 kWh usable; 10% → 99 kWh; 20% → 88 kWh.")
     print(f"{'Nivel':>6} {'Usable':>8} {'Energía':>12} {'VisEst':>10}")
     print("-" * 45)
     results = []
+    total = len(LARGE_INSTANCES)
     for label, reserve_pct in BATTERY_RESERVE_LEVELS.items():
         usable = BATTERY_CAPACITY_KWH * (1.0 - reserve_pct / 100.0)
         energies, visits_list = [], []
-        for name in LARGE_INSTANCES:
-            row = _run_eh_on_instance(name, seed, battery_reserve_pct=reserve_pct)
-            energies.append(row["energy"])
+        for idx, name in enumerate(LARGE_INSTANCES, start=1):
+            print(f"  [{label}] {name} ({idx}/{total})...", end=" ", flush=True)
+            row = _run_eh_on_instance(
+                name, seed, battery_reserve_pct=reserve_pct, time_limit_s=time_limit_s
+            )
+            tl_tag = (
+                " (TL)" if time_limit_s and row["time_s"] >= time_limit_s - 1 else ""
+            )
+            print(f"{row['time_s']:.1f}s{tl_tag}")
+            energies.append(
+                row["energy"] if row["energy"] is not None else float("inf")
+            )
             visits_list.append(row["station_visits"])
-        avg_e = sum(energies) / len(energies)
+        finite_e = [e for e in energies if math.isfinite(e)]
+        avg_e = sum(finite_e) / len(finite_e) if finite_e else float("nan")
         avg_v = sum(visits_list) / len(visits_list)
         print(f"{label:>6} {usable:>7.0f} {avg_e:>12.2f} {avg_v:>10.2f}")
         results.append(
@@ -2389,18 +2547,26 @@ def run_battery_reserve(seed=42):
     return results
 
 
-def run_energy_vs_distance(seed=42):
+def run_energy_vs_distance(
+    seed=42, time_limit_s: float | None = LARGE_RUN_TIME_LIMIT_S
+):
     print("\n" + "=" * 90)
     print("MODO energy-vs-distance | Minimización energía vs distancia (EH-SA/TS)")
+    if time_limit_s:
+        print(f"  Límite por instancia (EH): {time_limit_s:.0f}s")
     print("=" * 90)
     hdr = f"{'Inst':<14} {'E_min':>10} {'E_dist':>10} {'% inc':>10} {'t(s)':>6}"
     print(hdr)
     print("-" * 55)
     results = []
-    for name in LARGE_INSTANCES:
+    total = len(LARGE_INSTANCES)
+    for idx, name in enumerate(LARGE_INSTANCES, start=1):
+        print(f"  {name} ({idx}/{total})...", end=" ", flush=True)
         vertices, arcs = load_instance(name)
         t0 = time.time()
-        _, energy_min, _, _ = run_eh_sats(vertices, arcs, seed=seed)
+        _, energy_min, _, _ = run_eh_sats(
+            vertices, arcs, seed=seed, time_limit_s=time_limit_s
+        )
         _, energy_from_dist = solve_distance_minimizing(vertices, arcs, seed=seed + 1)
         t_s = time.time() - t0
         pct = relative_gap(energy_from_dist, energy_min)
@@ -2412,6 +2578,8 @@ def run_energy_vs_distance(seed=42):
             time_s=round(t_s, 2),
         )
         results.append(row)
+        tl_tag = " (TL)" if time_limit_s and t_s >= time_limit_s - 1 else ""
+        print(f"listo ({t_s:.1f}s{tl_tag})")
         print(
             f"{name:<14} {energy_min:>10.2f} {energy_from_dist:>10.2f} "
             f"{pct:>9.2f}% {t_s:>5.1f}s"
@@ -2582,6 +2750,261 @@ def _save_route_comparison_map(
     return out
 
 
+MAP_GROUP_SIZE = 5
+
+
+def _subplot_grid(n: int) -> tuple[int, int]:
+    """Disposición filasxcolumnas para agrupar mapas (hasta 6 paneles en 2x3)."""
+    if n <= 1:
+        return 1, 1
+    if n <= 2:
+        return 1, 2
+    if n <= 4:
+        return 2, 2
+    return 2, 3
+
+
+def _flat_axes(axes) -> list:
+    import numpy as np
+
+    arr = np.atleast_1d(axes)
+    return arr.flatten().tolist()
+
+
+def _draw_small_map_on_ax(
+    ax,
+    vertices: list[Vertex],
+    eh_routes: list[list[int]],
+    mip_routes: list[list[int]] | None,
+    instance: str,
+    *,
+    eh_energy: float | None = None,
+    ref_energy: float | None = None,
+    show_legend: bool = False,
+) -> None:
+    _draw_nodes(ax, vertices)
+    if mip_routes:
+        _draw_routes_on_ax(
+            ax,
+            vertices,
+            mip_routes,
+            color="#9467bd",
+            linestyle="-",
+            linewidth=1.4,
+            alpha=0.85,
+            label="OR-Tools",
+        )
+    _draw_routes_on_ax(
+        ax,
+        vertices,
+        eh_routes,
+        color="#ff7f0e",
+        linestyle="--",
+        linewidth=1.4,
+        alpha=0.9,
+        label="EH-SA/TS",
+    )
+    title = instance
+    if eh_energy is not None and ref_energy is not None:
+        title += f"\nOT {ref_energy:.0f} | EH {eh_energy:.0f} kWh"
+    elif eh_energy is not None:
+        title += f"\nEH {eh_energy:.0f} kWh"
+    ax.set_title(title, fontsize=9)
+    ax.tick_params(labelsize=7)
+    ax.grid(True, alpha=0.2)
+    ax.set_aspect("equal", adjustable="box")
+    if show_legend:
+        ax.legend(loc="upper right", fontsize=6, framealpha=0.9)
+
+
+def _draw_large_3runs_on_ax(
+    ax,
+    vertices: list[Vertex],
+    best_routes: list[list[int]] | None,
+    worst_routes: list[list[int]] | None,
+    avg_routes: list[list[int]] | None,
+    instance: str,
+    *,
+    best_energy: float | None = None,
+    worst_energy: float | None = None,
+    avg_energy: float | None = None,
+    show_legend: bool = False,
+) -> None:
+    _draw_nodes(ax, vertices)
+    if best_routes:
+        _draw_routes_on_ax(
+            ax,
+            vertices,
+            best_routes,
+            color="#1f77b4",
+            linestyle="-",
+            linewidth=1.5,
+            alpha=0.9,
+            label="Mejor",
+        )
+    if avg_routes:
+        _draw_routes_on_ax(
+            ax,
+            vertices,
+            avg_routes,
+            color="#ff7f0e",
+            linestyle="-.",
+            linewidth=1.3,
+            alpha=0.85,
+            label="Rep.",
+        )
+    if worst_routes:
+        _draw_routes_on_ax(
+            ax,
+            vertices,
+            worst_routes,
+            color="#d62728",
+            linestyle="--",
+            linewidth=1.3,
+            alpha=0.8,
+            label="Peor",
+        )
+    energy_bits: list[str] = []
+    if best_energy is not None:
+        energy_bits.append(f"B* {best_energy:.0f}")
+    if avg_energy is not None:
+        energy_bits.append(f"μ {avg_energy:.0f}")
+    if worst_energy is not None:
+        energy_bits.append(f"W {worst_energy:.0f}")
+    sub = " | ".join(energy_bits)
+    ax.set_title(f"{instance}\n{sub}" if sub else instance, fontsize=8)
+    ax.tick_params(labelsize=7)
+    ax.grid(True, alpha=0.2)
+    ax.set_aspect("equal", adjustable="box")
+    if show_legend:
+        ax.legend(loc="upper right", fontsize=6, framealpha=0.9)
+
+
+def _group_range_label_from_names(names: list[str]) -> str:
+    return names[0] if len(names) == 1 else f"{names[0]} – {names[-1]}"
+
+
+def save_grouped_small_maps(
+    prefix: str,
+    rows: list[dict],
+    *,
+    category: str = "small",
+    group_size: int = MAP_GROUP_SIZE,
+) -> list[Path]:
+    """Mapas pequeños: 5 instancias por PNG (EH vs OR-Tools en cada panel)."""
+    if not MATPLOTLIB_AVAILABLE:
+        return []
+    eligible = [r for r in rows if r.get("eh_routes") or r.get("eh_paths")]
+    if not eligible:
+        return []
+
+    def sort_key(r: dict) -> tuple[int, int, int]:
+        m = re.match(r"C(\d+)R(\d+)(?:-(\d+))?", r["instance"])
+        if m:
+            return (int(m.group(1)), int(m.group(2)), int(m.group(3) or 0))
+        return (0, 0, 0)
+
+    ordered = sorted(eligible, key=sort_key)
+    saved: list[Path] = []
+    for g_idx in range(0, len(ordered), group_size):
+        chunk = ordered[g_idx : g_idx + group_size]
+        g_num = g_idx // group_size + 1
+        n = len(chunk)
+        nrows, ncols = _subplot_grid(n)
+        fig, axes = plt.subplots(nrows, ncols, figsize=(4.8 * ncols, 4.2 * nrows))
+        for i, (ax, row) in enumerate(zip(_flat_axes(axes), chunk)):
+            inst = row["instance"]
+            eh_routes = row.get("eh_routes") or row.get("eh_paths")
+            vertices, _ = load_instance(inst)
+            _draw_small_map_on_ax(
+                ax,
+                vertices,
+                eh_routes,
+                row.get("mip_routes"),
+                inst,
+                eh_energy=row.get("eh_energy"),
+                ref_energy=row.get("mip_energy"),
+                show_legend=(i == 0),
+            )
+        for ax in _flat_axes(axes)[n:]:
+            ax.set_visible(False)
+        names = [r["instance"] for r in chunk]
+        fig.suptitle(
+            f"Mapas EH-SA/TS vs OR-Tools — {_group_range_label_from_names(names)}",
+            fontsize=12,
+            fontweight="bold",
+        )
+        fig.tight_layout()
+        out = stats_png_path(prefix, f"map_g{g_num}", category)
+        fig.savefig(out, dpi=130, bbox_inches="tight")
+        plt.close(fig)
+        saved.append(out)
+    return saved
+
+
+def save_grouped_large_maps(
+    prefix: str,
+    rows: list[dict],
+    *,
+    category: str = "large",
+    group_size: int = MAP_GROUP_SIZE,
+) -> list[Path]:
+    """Mapas grandes: 5 instancias por PNG (mejor / rep. / peor corrida superpuestas)."""
+    if not MATPLOTLIB_AVAILABLE:
+        return []
+    eligible = [
+        r
+        for r in rows
+        if any([r.get("best_routes"), r.get("worst_routes"), r.get("avg_routes")])
+    ]
+    if not eligible:
+        return []
+
+    def sort_key(r: dict) -> tuple[int, int, int]:
+        m = re.match(r"C(\d+)R(\d+)(?:-(\d+))?", r["instance"])
+        if m:
+            return (int(m.group(1)), int(m.group(2)), int(m.group(3) or 0))
+        return (0, 0, 0)
+
+    ordered = sorted(eligible, key=sort_key)
+    saved: list[Path] = []
+    for g_idx in range(0, len(ordered), group_size):
+        chunk = ordered[g_idx : g_idx + group_size]
+        g_num = g_idx // group_size + 1
+        n = len(chunk)
+        nrows, ncols = _subplot_grid(n)
+        fig, axes = plt.subplots(nrows, ncols, figsize=(4.8 * ncols, 4.2 * nrows))
+        for i, (ax, row) in enumerate(zip(_flat_axes(axes), chunk)):
+            inst = row["instance"]
+            vertices, _ = load_instance(inst)
+            _draw_large_3runs_on_ax(
+                ax,
+                vertices,
+                row.get("best_routes"),
+                row.get("worst_routes"),
+                row.get("avg_routes"),
+                inst,
+                best_energy=row.get("best_energy"),
+                worst_energy=row.get("worst_energy"),
+                avg_energy=row.get("avg_energy"),
+                show_legend=(i == 0),
+            )
+        for ax in _flat_axes(axes)[n:]:
+            ax.set_visible(False)
+        names = [r["instance"] for r in chunk]
+        fig.suptitle(
+            f"Mapas EH-SA/TS (B* / rep. / peor) — {_group_range_label_from_names(names)}",
+            fontsize=12,
+            fontweight="bold",
+        )
+        fig.tight_layout()
+        out = stats_png_path(prefix, f"map_3runs_g{g_num}", category)
+        fig.savefig(out, dpi=130, bbox_inches="tight")
+        plt.close(fig)
+        saved.append(out)
+    return saved
+
+
 def _save_bar_chart(
     prefix: str,
     suffix: str,
@@ -2595,6 +3018,18 @@ def _save_bar_chart(
 ) -> Path | None:
     if not MATPLOTLIB_AVAILABLE or not labels:
         return None
+    import math as _math
+
+    def _safe(v):
+        """Convierte None/inf/-inf a nan para que matplotlib los omita limpiamente."""
+        if v is None:
+            return float("nan")
+        try:
+            f = float(v)
+            return float("nan") if not _math.isfinite(f) else f
+        except (TypeError, ValueError):
+            return float("nan")
+
     fig, ax = plt.subplots(figsize=(max(8, len(labels) * 0.45), 6))
     x = range(len(labels))
     n_series = len(series)
@@ -2603,7 +3038,7 @@ def _save_bar_chart(
         offset = (i - (n_series - 1) / 2) * width
         ax.bar(
             [xi + offset for xi in x],
-            values,
+            [_safe(v) for v in values],
             width=width,
             label=name,
             alpha=0.9,
@@ -2617,6 +3052,65 @@ def _save_bar_chart(
     fig.tight_layout()
     out = stats_png_path(prefix, suffix, category)
     fig.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
+def _save_large_3run_map(
+    prefix: str,
+    instance: str,
+    vertices_list: list,
+    best_routes: list[list[int]] | None,
+    worst_routes: list[list[int]] | None,
+    avg_routes: list[list[int]] | None,
+    best_energy: float | None,
+    worst_energy: float | None,
+    avg_energy: float | None,
+) -> Path | None:
+    """Mapa de -large con 3 subplots: mejor, promedio y peor corrida."""
+    if not MATPLOTLIB_AVAILABLE:
+        return None
+    if best_routes is None and worst_routes is None and avg_routes is None:
+        return None
+
+    vmap = {v.idx: v for v in vertices_list}
+    fig, axes = plt.subplots(1, 3, figsize=(21, 7))
+    specs = [
+        (
+            best_routes,
+            best_energy,
+            "#1f77b4",
+            f"Mejor\n{best_energy:.2f} kWh" if best_energy else "Mejor (INF)",
+        ),
+        (
+            avg_routes,
+            avg_energy,
+            "#ff7f0e",
+            f"Representativo\n{avg_energy:.2f} kWh" if avg_energy else "Rep. (INF)",
+        ),
+        (
+            worst_routes,
+            worst_energy,
+            "#d62728",
+            f"Peor\n{worst_energy:.2f} kWh" if worst_energy else "Peor (INF)",
+        ),
+    ]
+    for ax, (routes, energy, color, subtitle) in zip(axes, specs):
+        _draw_nodes(ax, vertices_list)
+        if routes:
+            for seg in routes:
+                xs = [vmap[n].x for n in seg if n in vmap]
+                ys = [vmap[n].y for n in seg if n in vmap]
+                ax.plot(xs, ys, color=color, linewidth=1.5, alpha=0.85)
+        ax.set_title(subtitle, fontsize=10)
+        ax.set_xlabel("X (miles)")
+        ax.set_ylabel("Y (miles)")
+        ax.grid(True, alpha=0.2)
+        ax.legend(loc="upper right", fontsize=7)
+    fig.suptitle(f"EH-SA/TS — {instance}", fontsize=13, fontweight="bold")
+    fig.tight_layout()
+    out = stats_png_path(prefix, f"map_{instance}_3runs", "large")
+    fig.savefig(out, dpi=130, bbox_inches="tight")
     plt.close(fig)
     return out
 
@@ -2674,95 +3168,12 @@ def generate_visual_reports(
                 rotate=90,
             )
         )
-        for row in large_rows:
-            inst = row["instance"]
-            if not row.get("eh_routes"):
-                continue
-            vertices, _ = load_instance(inst)
-            add(
-                _save_route_comparison_map(
-                    prefix,
-                    inst,
-                    vertices,
-                    row["eh_routes"],
-                    None,
-                    category="large",
-                    eh_label="EH-SA/TS (B*)",
-                    eh_energy=row.get("best"),
-                )
-            )
-
-    recharge = results.get("recharge_stations")
-    if recharge and mode in ("recharge-stations", "all"):
-        add(
-            _save_bar_chart(
-                prefix,
-                "recharge_bars",
-                [r["group"] for r in recharge],
-                {
-                    "Energía media (kWh)": [r["energy"] for r in recharge],
-                    "Visitas estación": [r["visits"] for r in recharge],
-                },
-                category="extras",
-                title="Efecto del número de estaciones (R2–R8)",
-                ylabel="Valor medio",
-                rotate=0,
-            )
-        )
-
-    battery = results.get("battery_reserve")
-    if battery and mode in ("battery-reserve", "all"):
-        add(
-            _save_bar_chart(
-                prefix,
-                "battery_bars",
-                [r["threshold"] for r in battery],
-                {
-                    "Energía media (kWh)": [r["energy"] for r in battery],
-                    "Visitas estación": [r["visits"] for r in battery],
-                },
-                category="extras",
-                title="Reserva mínima de batería (EH-SA/TS)",
-                ylabel="Valor medio",
-                rotate=0,
-            )
-        )
-
-    evd = results.get("energy_vs_distance")
-    if evd and mode in ("energy-vs-distance", "all"):
-        labels = [r["instance"] for r in evd]
-        add(
-            _save_bar_chart(
-                prefix,
-                "evd_bars",
-                labels,
-                {
-                    "E_min (kWh)": [r["energy_min"] for r in evd],
-                    "E_dist (kWh)": [r["energy_dist"] for r in evd],
-                },
-                category="extras",
-                title="Energía vs distancia por instancia",
-                ylabel="Energía (kWh)",
-                rotate=90,
-            )
-        )
-        add(
-            _save_bar_chart(
-                prefix,
-                "evd_pct",
-                labels,
-                {"% inc. energía": [r["pct_inc"] for r in evd]},
-                category="extras",
-                title="Incremento % al minimizar distancia",
-                ylabel="%",
-                rotate=90,
-            )
-        )
+        add(save_grouped_large_maps(prefix, large_rows, category="large"))
 
     if saved:
         print(
-            f"\n[stats] {len(saved)} gráfico(s) PNG (prefijo {prefix}) en "
-            f"{STATS_DIR}/large|extras/ (pequeñas: stats_small.py)"
+            f"\n[stats] {len(saved)} gráfico(s) PNG (prefijo {prefix}) en {STATS_DIR}/"
+            f"\n        Regenerar offline: python stats.py -large {prefix.split('_')[1]}"
         )
         for path in saved:
             print(f"  - {path.name}")
@@ -2833,7 +3244,9 @@ def print_execution_modes_summary() -> None:
     print("  python main.py -small")
     print("    EH-SA/TS en C10R2-C24R2 (15 inst.). Log: logs/run_NNN_small.txt")
     print("    Referencia CPLEX: solve_cplex.py → logs/run_NNN_small_cplex.txt")
-    print("    Gráficos instancias small: python stats_small.py [NNN] → stats/small/")
+    print(
+        "    Gráficos + comparativa CPLEX: python stats.py -small [NNN] → stats/small/"
+    )
     print("")
     print("  python main.py -large")
     print(
@@ -2855,13 +3268,19 @@ def print_execution_modes_summary() -> None:
 
 
 def print_usage():
-    print("Uso: python main.py <modo> [--seed N] [--runs N]")
+    print("Uso: python main.py <modo> [--seed N] [--runs N] [--time-limit-run N]")
     print("")
     print_execution_modes_summary()
     print("")
     print("Opciones:")
-    print("  --seed N         Semilla base EH-SA/TS (default: 42)")
-    print("  --runs N         Corridas en -large (default: 10)")
+    print("  --seed N              Semilla base EH-SA/TS (default: 42)")
+    print("  --runs N              Corridas en -large (default: 10)")
+    print(
+        f"  --time-limit-run N    Límite en segundos por corrida EH en -large y extras"
+    )
+    print(
+        f"                        (default: {LARGE_RUN_TIME_LIMIT_S:.0f}s; usar 0 para sin límite)"
+    )
     print("")
     print("Otros modos: extended (C10-C11), bank (55 instancias)")
 
@@ -2871,6 +3290,7 @@ def _execute_mode(
     seed: int,
     single_name: str | None,
     num_runs: int = LARGE_NUM_RUNS_DEFAULT,
+    time_limit_run_s: float | None = LARGE_RUN_TIME_LIMIT_S,
 ) -> dict:
     print("=" * 70)
     print("EH-SA/TS - Enhanced Hybrid Simulated Annealing / Tabu Search")
@@ -2910,19 +3330,56 @@ def _execute_mode(
     if mode in ("all", "small"):
         collected["small"] = run_small_benchmark(seed=seed)
     if mode in ("all", "large"):
-        collected["large"] = run_large_multi_run(base_seed=seed, num_runs=num_runs)
+        collected["large"] = run_large_multi_run(
+            base_seed=seed, num_runs=num_runs, time_limit_s_per_run=time_limit_run_s
+        )
     if mode == "extended":
         collected["extended"] = run_extended_small(seed)
     if mode == "bank":
         collected["bank"] = run_own_bank(seed)
     if mode in ("all", "recharge-stations"):
-        collected["recharge_stations"] = run_recharge_stations(seed)
+        collected["recharge_stations"] = run_recharge_stations(
+            seed, time_limit_s=time_limit_run_s
+        )
     if mode in ("all", "battery-reserve"):
-        collected["battery_reserve"] = run_battery_reserve(seed)
+        collected["battery_reserve"] = run_battery_reserve(
+            seed, time_limit_s=time_limit_run_s
+        )
     if mode in ("all", "energy-vs-distance"):
-        collected["energy_vs_distance"] = run_energy_vs_distance(seed)
+        collected["energy_vs_distance"] = run_energy_vs_distance(
+            seed, time_limit_s=time_limit_run_s
+        )
     print("\n Experimento completado :D")
     return collected
+
+
+def _json_serializable(obj):
+    """Convierte recursivamente a tipos JSON-serializables."""
+    if isinstance(obj, dict):
+        return {k: _json_serializable(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_json_serializable(v) for v in obj]
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    if isinstance(obj, (int, str, bool)) or obj is None:
+        return obj
+    return str(obj)
+
+
+def save_run_data(log_path: Path, data: dict) -> Path:
+    """Guarda datos estructurados en JSON junto al log (para stats.py offline)."""
+    json_path = log_path.with_suffix(".json")
+    try:
+        json_path.write_text(
+            json.dumps(_json_serializable(data), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        print(f"[data] JSON guardado en: {json_path.name}")
+    except Exception as exc:
+        print(f"[data] Error guardando JSON: {exc}")
+    return json_path
 
 
 def main():
@@ -2931,6 +3388,7 @@ def main():
     seed = 42
     single_name = None
     num_runs = LARGE_NUM_RUNS_DEFAULT
+    time_limit_run_s: float | None = LARGE_RUN_TIME_LIMIT_S
 
     i = 0
     while i < len(args):
@@ -2942,6 +3400,10 @@ def main():
             i += 2
         elif args[i] == "--runs" and i + 1 < len(args):
             num_runs = int(args[i + 1])
+            i += 2
+        elif args[i] == "--time-limit-run" and i + 1 < len(args):
+            val = float(args[i + 1])
+            time_limit_run_s = None if val <= 0 else val
             i += 2
         elif args[i] == "single" and i + 1 < len(args):
             mode = "single"
@@ -2960,8 +3422,10 @@ def main():
             seed,
             single_name,
             num_runs=num_runs,
+            time_limit_run_s=time_limit_run_s,
         )
     print(f"\nLog guardado en: {log_path}")
+    save_run_data(log_path, run_results)
     generate_visual_reports(
         prefix,
         mode,

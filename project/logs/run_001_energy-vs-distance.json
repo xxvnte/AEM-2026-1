@@ -1,0 +1,286 @@
+{
+  "mode": "energy-vs-distance",
+  "seed": 42,
+  "energy_vs_distance": [
+    {
+      "instance": "C25R2-1",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 4.88
+    },
+    {
+      "instance": "C25R2-2",
+      "energy_min": 1149.19,
+      "energy_dist": 618.94,
+      "pct_inc": -46.14,
+      "time_s": 4.55
+    },
+    {
+      "instance": "C25R4-1",
+      "energy_min": 1282.18,
+      "energy_dist": 566.35,
+      "pct_inc": -55.83,
+      "time_s": 4.85
+    },
+    {
+      "instance": "C25R4-2",
+      "energy_min": 1019.24,
+      "energy_dist": 631.04,
+      "pct_inc": -38.09,
+      "time_s": 4.56
+    },
+    {
+      "instance": "C25R6-1",
+      "energy_min": 1120.11,
+      "energy_dist": 524.18,
+      "pct_inc": -53.2,
+      "time_s": 6.61
+    },
+    {
+      "instance": "C25R6-2",
+      "energy_min": 1094.06,
+      "energy_dist": 599.13,
+      "pct_inc": -45.24,
+      "time_s": 5.75
+    },
+    {
+      "instance": "C25R8-1",
+      "energy_min": 1094.41,
+      "energy_dist": 474.66,
+      "pct_inc": -56.63,
+      "time_s": 8.1
+    },
+    {
+      "instance": "C25R8-2",
+      "energy_min": 1158.78,
+      "energy_dist": 490.62,
+      "pct_inc": -57.66,
+      "time_s": 7.9
+    },
+    {
+      "instance": "C50R2-1",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 28.75
+    },
+    {
+      "instance": "C50R2-2",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 28.48
+    },
+    {
+      "instance": "C50R4-1",
+      "energy_min": 1730.32,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 25.16
+    },
+    {
+      "instance": "C50R4-2",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 25.63
+    },
+    {
+      "instance": "C50R6-1",
+      "energy_min": 1801.1,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 25.27
+    },
+    {
+      "instance": "C50R6-2",
+      "energy_min": 1490.84,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 27.65
+    },
+    {
+      "instance": "C50R8-1",
+      "energy_min": 1490.55,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 20.46
+    },
+    {
+      "instance": "C50R8-2",
+      "energy_min": 1609.39,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 26.9
+    },
+    {
+      "instance": "C75R2-1",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 300.06
+    },
+    {
+      "instance": "C75R2-2",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 42.87
+    },
+    {
+      "instance": "C75R4-1",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 43.74
+    },
+    {
+      "instance": "C75R4-2",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 34.6
+    },
+    {
+      "instance": "C75R6-1",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 37.41
+    },
+    {
+      "instance": "C75R6-2",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 43.72
+    },
+    {
+      "instance": "C75R8-1",
+      "energy_min": 3800.02,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 38.17
+    },
+    {
+      "instance": "C75R8-2",
+      "energy_min": 3401.46,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 35.73
+    },
+    {
+      "instance": "C100R2-1",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 77.78
+    },
+    {
+      "instance": "C100R2-2",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 70.3
+    },
+    {
+      "instance": "C100R4-1",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 64.89
+    },
+    {
+      "instance": "C100R4-2",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 61.89
+    },
+    {
+      "instance": "C100R6-1",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 64.25
+    },
+    {
+      "instance": "C100R6-2",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 54.64
+    },
+    {
+      "instance": "C100R8-1",
+      "energy_min": 4689.84,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 62.61
+    },
+    {
+      "instance": "C100R8-2",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 65.44
+    },
+    {
+      "instance": "C150R2-1",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 99.15
+    },
+    {
+      "instance": "C150R2-2",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 104.67
+    },
+    {
+      "instance": "C150R4-1",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 99.88
+    },
+    {
+      "instance": "C150R4-2",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 93.28
+    },
+    {
+      "instance": "C150R6-1",
+      "energy_min": 7466.32,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 95.91
+    },
+    {
+      "instance": "C150R6-2",
+      "energy_min": 7305.0,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 98.75
+    },
+    {
+      "instance": "C150R8-1",
+      "energy_min": 6809.23,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 93.73
+    },
+    {
+      "instance": "C150R8-2",
+      "energy_min": null,
+      "energy_dist": null,
+      "pct_inc": null,
+      "time_s": 93.08
+    }
+  ]
+}
