@@ -9,29 +9,29 @@ from pathlib import Path
 
 from amplpy import AMPL
 
-from main import (
-    ALPHA_ARC,
-    BATTERY_CAPACITY_KWH,
-    EFF_D,
-    EFF_M,
-    JOULES_TO_KWH,
-    VEHICLE_CAPACITY_TONS,
-    load_instance,
-)
+from main import parse_instance_name
 
 PROJECT_DIR = Path(__file__).parent
+SOLVER_DIR = PROJECT_DIR / "solver"
 LOGS_DIR = PROJECT_DIR / "logs"
-MODEL_PATH = PROJECT_DIR / "model.mod"
-INSTANCES_DIR = PROJECT_DIR / "instances"
-SMALL_DIR = INSTANCES_DIR / "small"
-SMALL_DAT_DIR = INSTANCES_DIR / "small_dat"
-LARGE_DIR = INSTANCES_DIR / "large"
-LARGE_DAT_DIR = INSTANCES_DIR / "large_dat"
+MODEL_PATH = SOLVER_DIR / "evrp.mod"
+DAT_DIR = SOLVER_DIR / "dat"
+SMALL_DIR = PROJECT_DIR / "instances" / "small"
 LOG_SLUG = "small_cplex"
-MAX_STATION_COPIES = 3
 
 DEFAULT_INSTANCES = [f"C{n}R2" for n in range(10, 25)]
-CPLEX_MIP_GAP = 0.0001
+CPLEX_TIME_LIMIT_S = 300
+CPLEX_MIP_GAP = 0.01
+CPLEX_INSTANCE_TIME_LIMITS: dict[str, int] = {"C23R2": 900}
+CPLEX_INSTANCE_MIP_GAP: dict[str, float] = {"C23R2": 0.05}
+
+
+def cplex_time_limit_s(instance_name: str) -> int:
+    return CPLEX_INSTANCE_TIME_LIMITS.get(instance_name, CPLEX_TIME_LIMIT_S)
+
+
+def cplex_mip_gap(instance_name: str) -> float:
+    return CPLEX_INSTANCE_MIP_GAP.get(instance_name, CPLEX_MIP_GAP)
 
 
 class _TeeWriter:
@@ -73,185 +73,83 @@ def capture_run_log(log_path: Path):
         log_file.close()
 
 
-def default_dat_path(name: str) -> Path:
-    if (SMALL_DIR / f"{name}.txt").exists():
-        return SMALL_DAT_DIR / f"{name}.dat"
-    if (LARGE_DIR / f"{name}.txt").exists():
-        return LARGE_DAT_DIR / f"{name}.dat"
-    return INSTANCES_DIR / f"{name}.dat"
-
-
-def resolve_dat_path(name: str) -> Path:
-    for path in (
-        SMALL_DAT_DIR / f"{name}.dat",
-        LARGE_DAT_DIR / f"{name}.dat",
-        INSTANCES_DIR / f"{name}.dat",
-    ):
-        if path.exists():
-            return path
-    raise FileNotFoundError(
-        f"No se encontró '{name}.dat' en small_dat/large_dat. "
-        f"Ejecute: python solve_cplex.py --build-small-dat"
-    )
-
-
 def list_small_instance_names() -> list[str]:
     return sorted(p.stem for p in SMALL_DIR.glob("*.txt"))
 
 
-def build_expanded_graph(
-    vertices: list,
-    arcs: dict,
-    max_station_copies: int = MAX_STATION_COPIES,
-) -> tuple[
-    list[int],
-    set[int],
-    list[int],
-    list[int],
-    int,
-    int,
-    dict[int, float],
-    dict[tuple[int, int], float],
-    int,
-]:
-    vmap = {v.idx: v for v in vertices}
-    depot_idxs = [v.idx for v in vertices if v.is_depot]
-    station_idxs = [v.idx for v in vertices if v.is_station]
-    customer_idxs = [v.idx for v in vertices if v.is_customer]
-
-    depot_start_vid = depot_idxs[0]
-    depot_end_vid = depot_idxs[-1] if len(depot_idxs) > 1 else depot_idxs[0]
-    n_customers = len(customer_idxs)
-    max_vehicles = n_customers
-
-    station_copies: list[int] = []
-    for station_vid in station_idxs:
-        for _ in range(max_station_copies * max_vehicles):
-            station_copies.append(station_vid)
-
-    all_nodes = [depot_start_vid] + customer_idxs + station_copies + [depot_end_vid]
-    n_nodes = len(all_nodes)
-    depot_start_idx = 0
-    depot_end_idx = n_nodes - 1
-
-    demands_kg = {c: vmap[c].demand_tons * 1000.0 for c in customer_idxs}
-    customer_set = set(range(1, 1 + n_customers))
-    station_local: set[int] = set()
-    recharge_local: set[int] = set()
-    for idx in range(n_nodes):
-        vid = all_nodes[idx]
-        if idx == depot_end_idx:
-            recharge_local.add(idx)
-        elif vid in vmap and vmap[vid].is_station:
-            station_local.add(idx)
-            recharge_local.add(idx)
-
-    arc_energy: dict[tuple[int, int], float] = {}
-    for i_idx in range(n_nodes):
-        for j_idx in range(n_nodes):
-            if i_idx == j_idx or i_idx == depot_end_idx or j_idx == depot_start_idx:
-                continue
-            i_vid = all_nodes[i_idx]
-            j_vid = all_nodes[j_idx]
-            load_approx = demands_kg.get(i_vid, 0.0) * 0.5
-            arc = arcs.get((i_vid, j_vid))
-            if arc is None:
-                continue
-            e_load = (
-                ALPHA_ARC * load_approx * arc.dist_m * EFF_D * EFF_M * JOULES_TO_KWH
-            )
-            arc_energy[(i_idx, j_idx)] = arc.energy_kwh_empty + e_load
-
-    return (
-        all_nodes,
-        customer_set,
-        list(station_local),
-        list(recharge_local),
-        depot_start_idx,
-        depot_end_idx,
-        demands_kg,
-        arc_energy,
-        max_vehicles,
+def resolve_dat_path(name: str) -> Path:
+    path = DAT_DIR / f"{name}.dat"
+    if path.exists():
+        return path
+    raise FileNotFoundError(
+        f"No se encontro '{name}.dat' en solver/dat/. "
+        f"Ejecute: python solve_cplex.py --build-dat"
     )
 
 
-def write_dat_file(name: str, output_path: Path | None = None) -> Path:
-    vertices, arcs = load_instance(name)
-    (
-        all_nodes,
-        customer_set,
-        station_idxs,
-        recharge_idxs,
-        depot_start_idx,
-        depot_end_idx,
-        demands_kg,
-        arc_energy,
-        max_vehicles,
-    ) = build_expanded_graph(vertices, arcs)
-
-    n_nodes = len(all_nodes)
-    cap_kg = VEHICLE_CAPACITY_TONS * 1000.0
-    bat_cap = BATTERY_CAPACITY_KWH
-    big_m_load = cap_kg + 1.0
-    big_m_batt = bat_cap + 1.0
-
-    if output_path is None:
-        output_path = default_dat_path(name)
-
-    node_list = " ".join(str(i) for i in range(n_nodes))
-    lines: list[str] = [
-        f"set NODES := {node_list};",
-        f"set CUSTOMERS := {' '.join(str(i) for i in sorted(customer_set))};",
-        f"set STATIONS := {' '.join(str(i) for i in sorted(station_idxs))};",
-        f"set RECHARGE := {' '.join(str(i) for i in sorted(recharge_idxs))};",
-        f"param depot_start := {depot_start_idx};",
-        f"param depot_end := {depot_end_idx};",
-        f"param cap_kg := {cap_kg};",
-        f"param bat_cap := {bat_cap};",
-        f"param big_m_load := {big_m_load};",
-        f"param big_m_batt := {big_m_batt};",
-        f"param max_vehicles := {max_vehicles};",
-        "param demand :=",
-    ]
-    for idx in sorted(customer_set):
-        vid = all_nodes[idx]
-        lines.append(f"  {idx}  {demands_kg[vid]}")
-    lines.append(";")
-    lines.append("set ARCS :=")
-    arc_lines = [f" ({i},{j})" for (i, j) in sorted(arc_energy)]
-    for chunk_start in range(0, len(arc_lines), 12):
-        lines.append("".join(arc_lines[chunk_start : chunk_start + 12]))
-    lines.append(";")
-    lines.append("param energy :=")
-    for (i, j), e_val in sorted(arc_energy.items()):
-        lines.append(f"  {i} {j}  {e_val:.8f}")
-    lines.append(";")
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
-    return output_path
-
-
 def build_all_small_dat() -> list[Path]:
-    SMALL_DAT_DIR.mkdir(parents=True, exist_ok=True)
-    return [
-        write_dat_file(name, SMALL_DAT_DIR / f"{name}.dat")
-        for name in list_small_instance_names()
-    ]
+    """Regenera solver/dat/*.dat desde instances/small/ via export_to_dat.py."""
+    sys.path.insert(0, str(SOLVER_DIR))
+    from export_to_dat import process_file
+
+    DAT_DIR.mkdir(parents=True, exist_ok=True)
+    paths: list[Path] = []
+    for name in list_small_instance_names():
+        txt = SMALL_DIR / f"{name}.txt"
+        paths.append(Path(process_file(str(txt), str(DAT_DIR))))
+    return paths
 
 
-def extract_mip_routes_ampl(
-    ampl: AMPL,
-    all_nodes: list[int],
-    depot_start_idx: int,
-    depot_end_idx: int,
-) -> list[list[int]]:
-    """Arcos activos x[i,j]=1; índices vía set ARCS (amplpy no expone Variable.keys)."""
-    remaining: set[tuple[int, int]] = set()
+def orig_id_to_instance(orig: int, n_customers: int) -> int:
+    """Convierte orig_id del .dat (esquema export_to_dat) a ID de instancia .txt."""
+    if orig <= 1:
+        return 0
+    if orig <= n_customers + 1:
+        return orig - 1
+    return n_customers + 1 + (orig - n_customers - 2)
+
+
+def _ampl_param_scalar(ampl: AMPL, name: str) -> int:
+    p = ampl.get_parameter(name)
+    val = p.value() if hasattr(p, "value") else p
+    if hasattr(val, "value"):
+        val = val.value()
+    return int(val)
+
+
+def _ampl_indexed_param(ampl: AMPL, name: str, idx: int) -> int:
+    p = ampl.get_parameter(name)
+    try:
+        val = p[idx]
+    except (KeyError, TypeError):
+        val = p[idx].value() if hasattr(p[idx], "value") else p[idx]
+    if hasattr(val, "value"):
+        val = val.value()
+    return int(val)
+
+
+def extract_mip_routes_evrp(ampl: AMPL, instance_name: str) -> list[list[int]]:
+    """Extrae rutas por vehiculo desde evrp.mod (x[i,j,k] + orig_id)."""
+    n_customers, _n_stations = parse_instance_name(instance_name)
+    depot_start = _ampl_param_scalar(ampl, "depot_start")
+    depot_end = _ampl_param_scalar(ampl, "depot_end")
     x_var = ampl.get_variable("x")
-    arcs_set = ampl.get_set("ARCS")
 
-    for arc in arcs_set:
+    def orig(ampl_idx: int) -> int:
+        return _ampl_indexed_param(ampl, "orig_id", ampl_idx)
+
+    def x_val(i: int, j: int, k) -> float:
+        try:
+            return float(x_var[i, j, k].value())
+        except (KeyError, TypeError, AttributeError):
+            try:
+                return float(x_var[(i, j, k)].value())
+            except (KeyError, TypeError, AttributeError):
+                return 0.0
+
+    vehicles = list(ampl.get_set("VEHICLES"))
+    active: dict = {k: [] for k in vehicles}
+    for arc in ampl.get_set("ARCS"):
         if isinstance(arc, tuple):
             i_idx, j_idx = int(arc[0]), int(arc[1])
         else:
@@ -259,31 +157,33 @@ def extract_mip_routes_ampl(
             if len(parts) < 2:
                 continue
             i_idx, j_idx = int(parts[0]), int(parts[1])
-        try:
-            val = float(x_var[i_idx, j_idx].value())
-        except (KeyError, TypeError, AttributeError):
-            val = float(x_var[arc].value())
-        if val > 0.5:
-            remaining.add((i_idx, j_idx))
+        for k in vehicles:
+            if x_val(i_idx, j_idx, k) > 0.5:
+                active[k].append((i_idx, j_idx))
 
     routes: list[list[int]] = []
-    while remaining:
-        path_idx = [depot_start_idx]
-        cur = depot_start_idx
-        stuck = False
-        while cur != depot_end_idx:
-            next_candidates = [j for (i, j) in remaining if i == cur]
+    for k in vehicles:
+        if not any(i == depot_start for i, _ in active[k]):
+            continue
+        path_inst: list[int] = [orig_id_to_instance(orig(depot_start), n_customers)]
+        cur = depot_start
+        visited = 0
+        max_steps = len(list(ampl.get_set("NODES"))) + 5
+        while cur != depot_end and visited < max_steps:
+            visited += 1
+            next_candidates = [j for i, j in active[k] if i == cur]
             if not next_candidates:
-                stuck = True
                 break
             nxt = next_candidates[0]
-            remaining.discard((cur, nxt))
-            path_idx.append(nxt)
+            active[k] = [(i, j) for i, j in active[k] if not (i == cur and j == nxt)]
+            if nxt != depot_end:
+                path_inst.append(orig_id_to_instance(orig(nxt), n_customers))
             cur = nxt
-        if len(path_idx) >= 2:
-            routes.append([all_nodes[i] for i in path_idx])
-        if stuck or path_idx[-1] != depot_end_idx:
-            break
+        if len(path_inst) >= 2:
+            if path_inst[-1] != 0:
+                path_inst.append(0)
+            routes.append(path_inst)
+
     return routes
 
 
@@ -310,30 +210,26 @@ def map_solver_status(
     return "DESCONOCIDO"
 
 
-def create_ampl() -> AMPL:
+def create_ampl(*, time_limit_s: int | None = None, mip_gap: float | None = None) -> AMPL:
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(f"No se encontro el modelo: {MODEL_PATH}")
+    limit = time_limit_s if time_limit_s is not None else CPLEX_TIME_LIMIT_S
+    gap = mip_gap if mip_gap is not None else CPLEX_MIP_GAP
     ampl = AMPL()
     ampl.set_option("solver", "cplex")
-    ampl.set_option("cplex_options", f"mipgap={CPLEX_MIP_GAP}")
+    ampl.set_option(
+        "cplex_options",
+        f"timelimit={limit} mipgap={gap} threads=0",
+    )
     ampl.read(str(MODEL_PATH))
     return ampl
 
 
 def solve_instance(instance_name: str) -> dict:
     dat_path = resolve_dat_path(instance_name)
-    vertices, arcs = load_instance(instance_name)
-    (
-        all_nodes,
-        _customer_set,
-        _station_idxs,
-        _recharge_idxs,
-        depot_start_idx,
-        depot_end_idx,
-        _demands_kg,
-        _arc_energy,
-        _max_vehicles,
-    ) = build_expanded_graph(vertices, arcs)
-
-    ampl = create_ampl()
+    time_limit = cplex_time_limit_s(instance_name)
+    mip_gap = cplex_mip_gap(instance_name)
+    ampl = create_ampl(time_limit_s=time_limit, mip_gap=mip_gap)
     try:
         ampl.read_data(str(dat_path))
         t0 = time.perf_counter()
@@ -349,25 +245,25 @@ def solve_instance(instance_name: str) -> dict:
         routes: list[list[int]] = []
         if status.startswith("OPTIMO") or status.startswith("FACTIBLE"):
             try:
-                raw_obj = float(ampl.get_objective("total_energy").value())
+                raw_obj = float(ampl.get_objective("TotalEnergy").value())
                 if raw_obj > -1e15:
                     energy = raw_obj
             except Exception:
                 try:
-                    raw_obj = float(ampl.get_value("total_energy"))
+                    raw_obj = float(ampl.get_value("TotalEnergy"))
                     if raw_obj > -1e15:
                         energy = raw_obj
                 except Exception:
                     energy = float("nan")
             if energy == energy:
-                routes = extract_mip_routes_ampl(
-                    ampl, all_nodes, depot_start_idx, depot_end_idx
-                )
+                routes = extract_mip_routes_evrp(ampl, instance_name)
 
         return {
             "instance": instance_name,
             "energy_kwh": energy,
             "solve_time_s": round(elapsed, 2),
+            "time_limit_s": time_limit,
+            "mip_gap": mip_gap,
             "status": status,
             "solve_result": solve_result,
             "dat_file": str(dat_path),
@@ -396,7 +292,7 @@ def print_results_table(rows: list[dict]) -> None:
     print("\n" + "=" * 72)
     print("RESUMEN CPLEX (instancias pequeñas)")
     print("=" * 72)
-    print(f"{'Instancia':<12} {'Energía':>12} {'Tiempo':>8} {'Estado':<22}")
+    print(f"{'Instancia':<12} {'Energia':>12} {'Tiempo':>8} {'Estado':<22}")
     print("-" * 72)
     for row in rows:
         energy = row["energy_kwh"]
@@ -406,25 +302,24 @@ def print_results_table(rows: list[dict]) -> None:
             if row["solve_time_s"] == row["solve_time_s"]
             else "    nan"
         )
-        print(
-            f"{row['instance']:<12} {energy_txt} {time_txt:>8} " f"{row['status']:<22}"
-        )
+        print(f"{row['instance']:<12} {energy_txt} {time_txt:>8} {row['status']:<22}")
     print("-" * 72)
     ok = sum(1 for r in rows if str(r["status"]).startswith(("OPTIMO", "FACTIBLE")))
     print(f"Resueltas: {ok}/{len(rows)}")
 
 
 def run_batch(instance_names: list[str]) -> list[dict]:
-    if not MODEL_PATH.exists():
-        raise FileNotFoundError(f"No se encontró el modelo: {MODEL_PATH}")
-
     rows: list[dict] = []
     for name in instance_names:
         print(f"\n{'=' * 60}")
         print(f"Instancia: {name}")
         try:
             dat_path = resolve_dat_path(name)
+            print(f"Modelo: {MODEL_PATH}")
             print(f"Datos: {dat_path}")
+            time_limit = cplex_time_limit_s(name)
+            mip_gap = cplex_mip_gap(name)
+            print(f"CPLEX timelimit: {time_limit}s, mipgap: {mip_gap}")
             row = solve_instance(name)
             energy_txt = (
                 f"{row['energy_kwh']:.4f}"
@@ -432,7 +327,7 @@ def run_batch(instance_names: list[str]) -> list[dict]:
                 else "nan"
             )
             print(
-                f"Estado: {row['status']} | Energía: {energy_txt} kWh "
+                f"Estado: {row['status']} | Energia: {energy_txt} kWh "
                 f"| Tiempo: {row['solve_time_s']} s"
             )
             if row.get("routes"):
@@ -458,15 +353,21 @@ def main() -> None:
     args = sys.argv[1:]
     if not args:
         instances = DEFAULT_INSTANCES
-    elif args[0] == "--build-small-dat":
+    elif args[0] in ("--build-dat", "--build-small-dat"):
         paths = build_all_small_dat()
         for path in paths:
             print(f"Generado: {path}")
         return
-    elif args[0] == "--help" or args[0] == "-h":
+    elif args[0] in ("--help", "-h"):
         print("Uso: python solve_cplex.py [instancia ...]")
-        print("     python solve_cplex.py --build-small-dat")
-        print(f"Logs: logs/run_NNN_{LOG_SLUG}.txt")
+        print("     python solve_cplex.py --build-dat")
+        print(f"Modelo: solver/evrp.mod")
+        print(f"Datos:  solver/dat/<instancia>.dat")
+        print(f"Logs:   logs/run_NNN_{LOG_SLUG}.txt")
+        print(
+            f"CPLEX:  timelimit={CPLEX_TIME_LIMIT_S}s, mipgap={CPLEX_MIP_GAP} "
+            f"(C23R2: {CPLEX_INSTANCE_TIME_LIMITS['C23R2']}s, mipgap={CPLEX_INSTANCE_MIP_GAP['C23R2']})"
+        )
         return
     else:
         instances = args
@@ -476,8 +377,12 @@ def main() -> None:
 
     with capture_run_log(log_path):
         print("EVRP — batch CPLEX (AMPL)")
+        print(f"Modelo: {MODEL_PATH}")
         print(f"Instancias: {len(instances)}")
-        print(f"CPLEX: sin límite de tiempo, mipgap={CPLEX_MIP_GAP}")
+        print(
+            f"CPLEX: timelimit={CPLEX_TIME_LIMIT_S}s, mipgap={CPLEX_MIP_GAP} por defecto; "
+            f"C23R2: {CPLEX_INSTANCE_TIME_LIMITS['C23R2']}s, mipgap={CPLEX_INSTANCE_MIP_GAP['C23R2']}"
+        )
         run_batch(instances)
         print("\n Experimento CPLEX completado")
 

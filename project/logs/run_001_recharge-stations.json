@@ -5,13 +5,13 @@
     {
       "group": "R2",
       "energy": null,
-      "visits": 26.5,
+      "visits": 26.7,
       "n": 10
     },
     {
       "group": "R4",
       "energy": null,
-      "visits": 34.9,
+      "visits": 35.0,
       "n": 10
     },
     {
@@ -23,7 +23,7 @@
     {
       "group": "R8",
       "energy": null,
-      "visits": 48.4,
+      "visits": 48.1,
       "n": 10
     }
   ]

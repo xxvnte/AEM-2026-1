@@ -1,0 +1,90 @@
+# ===================================================
+# evrp.run — AMPL Run Script for EVRP MILP
+# ===================================================
+# Default: solves C10R2 for testing.
+# For batch execution, use run_all.ps1 which generates
+# per-instance AMPL commands.
+# ===================================================
+
+reset;
+
+# Load model and data
+model evrp.mod;
+data dat/C10R2.dat;
+
+# Solver configuration
+option solver cplex;
+option cplex_options 'timelimit=300 mipgap=0.01 threads=0 mipdisplay=2';
+
+# Solve the MILP
+solve;
+
+# ==================== Output Results ====================
+
+# Declare scripting params once (before any loops)
+param n_vehicles_used default 0;
+param total_demand_served default 0;
+param cur integer default 0;
+param found integer default 0;
+
+printf "\n";
+printf "========================================\n";
+printf "  EVRP CPLEX SOLUTION\n";
+printf "========================================\n";
+printf "Status:           %s\n", solve_result;
+printf "Objective (kWh):  %.6f\n", TotalEnergy;
+printf "Solve result num: %d\n", solve_result_num;
+printf "\n";
+
+# Count vehicles used
+let n_vehicles_used := sum {k in VEHICLES}
+    (if sum {(depot_start,j) in ARCS} x[depot_start,j,k] > 0.5 then 1 else 0);
+printf "Vehicles used:    %d / %d\n", n_vehicles_used, card(VEHICLES);
+
+# Total demand served
+let total_demand_served := sum {c in CUSTOMERS} demand[c];
+printf "Total demand:     %.4f tons\n", total_demand_served;
+printf "\n";
+
+# ==================== Active Arcs ====================
+printf "--- ACTIVE ARCS ---\n";
+printf "from,to,vehicle,load_tons,energy_fixed,energy_load\n";
+for {(i,j) in ARCS, k in VEHICLES: x[i,j,k] > 0.5} {
+    printf "%d,%d,%d,%.6f,%.6f,%.6f\n",
+        orig_id[i], orig_id[j], k, f[i,j,k],
+        c_fixed[i,j], c_load[i,j] * f[i,j,k];
+}
+printf "END_ARCS\n\n";
+
+# ==================== Routes ====================
+printf "--- ROUTES ---\n";
+for {k in VEHICLES: sum{(depot_start,j) in ARCS} x[depot_start,j,k] > 0.5} {
+    printf "Vehicle %d:", k;
+    let cur := depot_start;
+    printf " %d", orig_id[cur];
+    repeat {
+        let found := 0;
+        for {(i,j) in ARCS: i == cur and x[i,j,k] > 0.5} {
+            printf " -> %d", orig_id[j];
+            let cur := j;
+            let found := 1;
+        }
+        if found == 0 then break;
+    } until (cur == depot_end);
+    printf "\n";
+}
+printf "END_ROUTES\n\n";
+
+# ==================== Battery Levels ====================
+printf "--- BATTERY LEVELS (departure) ---\n";
+printf "node,vehicle,battery_kwh\n";
+for {k in VEHICLES: sum{(depot_start,j) in ARCS} x[depot_start,j,k] > 0.5} {
+    for {n in NODES: y[n,k] > 0.001} {
+        printf "%d,%d,%.4f\n", orig_id[n], k, y[n,k];
+    }
+}
+printf "END_BATTERY\n\n";
+
+printf "========================================\n";
+printf "  SOLUTION COMPLETE\n";
+printf "========================================\n";

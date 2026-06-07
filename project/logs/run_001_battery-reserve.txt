@@ -14,461 +14,719 @@ Reserva: 0% → 110 kWh usable; 10% → 99 kWh; 20% → 88 kWh.
   [0%] C25R2-1 (1/40)...   [MEJOR CANDIDATO INFACTIBLE] C25R2-1 (no reportada como energía válida)
     f_gen=11518.30 | energía simulada=1413.62 kWh
     clientes=25/25 | faltantes=ninguno | duplicados=0
-    viol_batería=300.7635 kWh | viol_capacidad=0.0000 kg
+    viol_batería=300.7635 kWh | viol_capacidad=0.0000 kg | est_compartidas=0 | veh_excedidos=0
     rutas=1 | visitas_estaciones=7
     causas: violación batería (300.76 kWh)
-4.5s
-  [0%] C25R2-2 (2/40)... 4.7s
-  [0%] C25R4-1 (3/40)... 4.8s
-  [0%] C25R4-2 (4/40)... 5.0s
-  [0%] C25R6-1 (5/40)... 6.5s
+4.6s
+  [0%] C25R2-2 (2/40)... 4.2s
+  [0%] C25R4-1 (3/40)... 4.7s
+  [0%] C25R4-2 (4/40)... 4.8s
+  [0%] C25R6-1 (5/40)... 7.1s
   [0%] C25R6-2 (6/40)... 6.3s
-  [0%] C25R8-1 (7/40)... 7.8s
-  [0%] C25R8-2 (8/40)... 8.1s
+  [0%] C25R8-1 (7/40)... 8.5s
+  [0%] C25R8-2 (8/40)... 7.7s
   [0%] C50R2-1 (9/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R2-1 (no reportada como energía válida)
-    f_gen=1485.73 | energía simulada=1485.73 kWh
+    f_gen=1896.10 | energía simulada=1618.69 kWh
     clientes=50/50 | faltantes=ninguno | duplicados=0
-    viol_batería=14.0648 kWh | viol_capacidad=0.0000 kg
-    rutas=2 | visitas_estaciones=4
-    causas: violación batería (14.06 kWh)
-  [MEJOR CANDIDATO FACTIBLE EN BÚSQUEDA] f_gen=1491.86 | energía=1491.86 kWh | clientes=50/50
-28.9s
-  [0%] C50R2-2 (10/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R2-2 (no reportada como energía válida)
-    f_gen=1601.36 | energía simulada=1601.36 kWh
-    clientes=50/50 | faltantes=ninguno | duplicados=0
-    viol_batería=15.9086 kWh | viol_capacidad=0.0000 kg
-    rutas=2 | visitas_estaciones=3
-    causas: violación batería (15.91 kWh)
-  [MEJOR CANDIDATO FACTIBLE EN BÚSQUEDA] f_gen=1631.40 | energía=1631.40 kWh | clientes=50/50
-28.4s
-  [0%] C50R4-1 (11/40)... 25.0s
-  [0%] C50R4-2 (12/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R4-2 (no reportada como energía válida)
-    f_gen=1100.24 | energía simulada=1100.24 kWh
-    clientes=50/50 | faltantes=ninguno | duplicados=0
-    viol_batería=37.6186 kWh | viol_capacidad=0.0000 kg
-    rutas=2 | visitas_estaciones=3
-    causas: violación batería (37.62 kWh)
-  [MEJOR CANDIDATO FACTIBLE EN BÚSQUEDA] f_gen=1130.83 | energía=1130.83 kWh | clientes=50/50
+    viol_batería=46.2548 kWh | viol_capacidad=0.0000 kg | est_compartidas=0 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=6
+    causas: violación batería (46.25 kWh)
 25.7s
-  [0%] C50R6-1 (13/40)... 25.0s
-  [0%] C50R6-2 (14/40)... 27.4s
-  [0%] C50R8-1 (15/40)... 20.3s
-  [0%] C50R8-2 (16/40)... 26.7s
+  [0%] C50R2-2 (10/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R2-2 (no reportada como energía válida)
+    f_gen=1821.48 | energía simulada=1772.19 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=60.6335 kWh | viol_capacidad=0.0000 kg | est_compartidas=0 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=3
+    causas: violación batería (60.63 kWh)
+21.0s
+  [0%] C50R4-1 (11/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R4-1 (no reportada como energía válida)
+    f_gen=2630.32 | energía simulada=1730.32 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=3 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=13
+    causas: estaciones compartidas (3)
+28.1s
+  [0%] C50R4-2 (12/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R4-2 (no reportada como energía válida)
+    f_gen=1230.28 | energía simulada=1230.28 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=20.5863 kWh | viol_capacidad=0.0000 kg | est_compartidas=0 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=4
+    causas: violación batería (20.59 kWh)
+21.6s
+  [0%] C50R6-1 (13/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R6-1 (no reportada como energía válida)
+    f_gen=2701.10 | energía simulada=1801.10 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=3 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=19
+    causas: estaciones compartidas (3)
+28.1s
+  [0%] C50R6-2 (14/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R6-2 (no reportada como energía válida)
+    f_gen=2390.84 | energía simulada=1490.84 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=3 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=13
+    causas: estaciones compartidas (3)
+31.0s
+  [0%] C50R8-1 (15/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R8-1 (no reportada como energía válida)
+    f_gen=1790.55 | energía simulada=1490.55 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=1 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=12
+    causas: estaciones compartidas (1)
+23.2s
+  [0%] C50R8-2 (16/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R8-2 (no reportada como energía válida)
+    f_gen=2133.46 | energía simulada=1533.46 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=2 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=13
+    causas: estaciones compartidas (2)
+34.8s
   [0%] C75R2-1 (17/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R2-1 (no reportada como energía válida)
-    f_gen=66237.84 | energía simulada=4487.23 kWh
+    f_gen=67437.84 | energía simulada=4487.23 kWh
     clientes=75/75 | faltantes=ninguno | duplicados=0
-    viol_batería=843.6817 kWh | viol_capacidad=0.0000 kg
+    viol_batería=843.6817 kWh | viol_capacidad=0.0000 kg | est_compartidas=4 | veh_excedidos=0
     rutas=3 | visitas_estaciones=21
-    causas: violación batería (843.68 kWh)
+    causas: violación batería (843.68 kWh), estaciones compartidas (4)
 300.0s (TL)
   [0%] C75R2-2 (18/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R2-2 (no reportada como energía válida)
-    f_gen=27443.20 | energía simulada=4614.09 kWh
+    f_gen=28643.20 | energía simulada=4614.09 kWh
     clientes=75/75 | faltantes=ninguno | duplicados=0
-    viol_batería=302.7041 kWh | viol_capacidad=0.0000 kg
+    viol_batería=302.7041 kWh | viol_capacidad=0.0000 kg | est_compartidas=4 | veh_excedidos=0
     rutas=3 | visitas_estaciones=29
-    causas: violación batería (302.70 kWh)
-42.9s
+    causas: violación batería (302.70 kWh), estaciones compartidas (4)
+59.6s
   [0%] C75R4-1 (19/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R4-1 (no reportada como energía válida)
-    f_gen=13256.41 | energía simulada=3751.16 kWh
+    f_gen=15356.41 | energía simulada=3751.16 kWh
     clientes=75/75 | faltantes=ninguno | duplicados=0
-    viol_batería=163.4072 kWh | viol_capacidad=0.0000 kg
+    viol_batería=163.4072 kWh | viol_capacidad=0.0000 kg | est_compartidas=7 | veh_excedidos=0
     rutas=3 | visitas_estaciones=23
-    causas: violación batería (163.41 kWh)
-44.2s
+    causas: violación batería (163.41 kWh), estaciones compartidas (7)
+61.3s
   [0%] C75R4-2 (20/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R4-2 (no reportada como energía válida)
-    f_gen=22080.13 | energía simulada=3903.08 kWh
+    f_gen=23580.13 | energía simulada=3903.08 kWh
     clientes=75/75 | faltantes=ninguno | duplicados=0
-    viol_batería=196.3829 kWh | viol_capacidad=0.0000 kg
+    viol_batería=196.3829 kWh | viol_capacidad=0.0000 kg | est_compartidas=5 | veh_excedidos=0
     rutas=3 | visitas_estaciones=39
-    causas: violación batería (196.38 kWh)
-34.6s
+    causas: violación batería (196.38 kWh), estaciones compartidas (5)
+54.8s
   [0%] C75R6-1 (21/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R6-1 (no reportada como energía válida)
-    f_gen=11158.55 | energía simulada=3676.92 kWh
+    f_gen=13858.55 | energía simulada=3676.92 kWh
     clientes=75/75 | faltantes=ninguno | duplicados=0
-    viol_batería=97.8825 kWh | viol_capacidad=0.0000 kg
+    viol_batería=97.8825 kWh | viol_capacidad=0.0000 kg | est_compartidas=9 | veh_excedidos=0
     rutas=3 | visitas_estaciones=44
-    causas: violación batería (97.88 kWh)
-37.0s
+    causas: violación batería (97.88 kWh), estaciones compartidas (9)
+54.5s
   [0%] C75R6-2 (22/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R6-2 (no reportada como energía válida)
-    f_gen=14423.24 | energía simulada=4185.05 kWh
+    f_gen=16523.24 | energía simulada=4185.05 kWh
     clientes=75/75 | faltantes=ninguno | duplicados=0
-    viol_batería=147.7053 kWh | viol_capacidad=0.0000 kg
+    viol_batería=147.7053 kWh | viol_capacidad=0.0000 kg | est_compartidas=7 | veh_excedidos=0
     rutas=3 | visitas_estaciones=43
-    causas: violación batería (147.71 kWh)
-43.8s
-  [0%] C75R8-1 (23/40)... 38.3s
-  [0%] C75R8-2 (24/40)... 35.6s
+    causas: violación batería (147.71 kWh), estaciones compartidas (7)
+55.3s
+  [0%] C75R8-1 (23/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R8-1 (no reportada como energía válida)
+    f_gen=7400.02 | energía simulada=3800.02 kWh
+    clientes=75/75 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=12 | veh_excedidos=0
+    rutas=3 | visitas_estaciones=48
+    causas: estaciones compartidas (12)
+37.5s
+  [0%] C75R8-2 (24/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R8-2 (no reportada como energía válida)
+    f_gen=7001.46 | energía simulada=3401.46 kWh
+    clientes=75/75 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=12 | veh_excedidos=0
+    rutas=3 | visitas_estaciones=58
+    causas: estaciones compartidas (12)
+33.4s
   [0%] C100R2-1 (25/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R2-1 (no reportada como energía válida)
-    f_gen=13523.69 | energía simulada=5525.21 kWh
+    f_gen=15323.69 | energía simulada=5525.21 kWh
     clientes=100/100 | faltantes=ninguno | duplicados=0
-    viol_batería=361.8670 kWh | viol_capacidad=0.0000 kg
+    viol_batería=361.8670 kWh | viol_capacidad=0.0000 kg | est_compartidas=6 | veh_excedidos=0
     rutas=4 | visitas_estaciones=33
-    causas: violación batería (361.87 kWh)
-77.9s
+    causas: violación batería (361.87 kWh), estaciones compartidas (6)
+74.0s
   [0%] C100R2-2 (26/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R2-2 (no reportada como energía válida)
-    f_gen=5308.34 | energía simulada=5308.34 kWh
+    f_gen=6808.34 | energía simulada=5308.34 kWh
     clientes=100/100 | faltantes=ninguno | duplicados=0
-    viol_batería=47.5452 kWh | viol_capacidad=0.0000 kg
+    viol_batería=47.5452 kWh | viol_capacidad=0.0000 kg | est_compartidas=5 | veh_excedidos=0
     rutas=4 | visitas_estaciones=44
-    causas: violación batería (47.55 kWh)
-70.0s
+    causas: violación batería (47.55 kWh), estaciones compartidas (5)
+65.2s
   [0%] C100R4-1 (27/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R4-1 (no reportada como energía válida)
-    f_gen=10054.49 | energía simulada=4933.32 kWh
+    f_gen=13054.49 | energía simulada=4933.32 kWh
     clientes=100/100 | faltantes=ninguno | duplicados=0
-    viol_batería=88.3560 kWh | viol_capacidad=0.0000 kg
+    viol_batería=88.3560 kWh | viol_capacidad=0.0000 kg | est_compartidas=10 | veh_excedidos=0
     rutas=4 | visitas_estaciones=48
-    causas: violación batería (88.36 kWh)
-64.5s
+    causas: violación batería (88.36 kWh), estaciones compartidas (10)
+61.6s
   [0%] C100R4-2 (28/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R4-2 (no reportada como energía válida)
-    f_gen=4841.45 | energía simulada=4841.45 kWh
+    f_gen=7841.45 | energía simulada=4841.45 kWh
     clientes=100/100 | faltantes=ninguno | duplicados=0
-    viol_batería=169.8857 kWh | viol_capacidad=0.0000 kg
+    viol_batería=169.8857 kWh | viol_capacidad=0.0000 kg | est_compartidas=10 | veh_excedidos=0
     rutas=4 | visitas_estaciones=49
-    causas: violación batería (169.89 kWh)
-62.5s
+    causas: violación batería (169.89 kWh), estaciones compartidas (10)
+58.1s
   [0%] C100R6-1 (29/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R6-1 (no reportada como energía válida)
-    f_gen=9679.89 | energía simulada=4755.57 kWh
+    f_gen=13279.89 | energía simulada=4755.57 kWh
     clientes=100/100 | faltantes=ninguno | duplicados=0
-    viol_batería=80.6772 kWh | viol_capacidad=0.0000 kg
+    viol_batería=80.6772 kWh | viol_capacidad=0.0000 kg | est_compartidas=12 | veh_excedidos=0
     rutas=4 | visitas_estaciones=52
-    causas: violación batería (80.68 kWh)
-63.5s
+    causas: violación batería (80.68 kWh), estaciones compartidas (12)
+59.7s
   [0%] C100R6-2 (30/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R6-2 (no reportada como energía válida)
-    f_gen=23214.35 | energía simulada=4557.47 kWh
+    f_gen=26814.35 | energía simulada=4557.47 kWh
     clientes=100/100 | faltantes=ninguno | duplicados=0
-    viol_batería=235.7995 kWh | viol_capacidad=0.0000 kg
+    viol_batería=235.7995 kWh | viol_capacidad=0.0000 kg | est_compartidas=12 | veh_excedidos=0
     rutas=4 | visitas_estaciones=67
-    causas: violación batería (235.80 kWh)
-54.4s
-  [0%] C100R8-1 (31/40)... 62.7s
-  [0%] C100R8-2 (32/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R8-2 (no reportada como energía válida)
-    f_gen=19060.91 | energía simulada=4801.29 kWh
+    causas: violación batería (235.80 kWh), estaciones compartidas (12)
+51.0s
+  [0%] C100R8-1 (31/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R8-1 (no reportada como energía válida)
+    f_gen=8289.84 | energía simulada=4689.84 kWh
     clientes=100/100 | faltantes=ninguno | duplicados=0
-    viol_batería=247.3832 kWh | viol_capacidad=0.0000 kg
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=12 | veh_excedidos=0
+    rutas=4 | visitas_estaciones=57
+    causas: estaciones compartidas (12)
+58.6s
+  [0%] C100R8-2 (32/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R8-2 (no reportada como energía válida)
+    f_gen=23260.91 | energía simulada=4801.29 kWh
+    clientes=100/100 | faltantes=ninguno | duplicados=0
+    viol_batería=247.3832 kWh | viol_capacidad=0.0000 kg | est_compartidas=14 | veh_excedidos=0
     rutas=4 | visitas_estaciones=64
-    causas: violación batería (247.38 kWh)
-65.0s
+    causas: violación batería (247.38 kWh), estaciones compartidas (14)
+62.8s
   [0%] C150R2-1 (33/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R2-1 (no reportada como energía válida)
-    f_gen=48771.78 | energía simulada=8542.18 kWh
+    f_gen=51171.78 | energía simulada=8542.18 kWh
     clientes=150/150 | faltantes=ninguno | duplicados=0
-    viol_batería=629.0210 kWh | viol_capacidad=0.0000 kg
+    viol_batería=629.0210 kWh | viol_capacidad=0.0000 kg | est_compartidas=8 | veh_excedidos=0
     rutas=5 | visitas_estaciones=68
-    causas: violación batería (629.02 kWh)
-98.5s
+    causas: violación batería (629.02 kWh), estaciones compartidas (8)
+93.0s
   [0%] C150R2-2 (34/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R2-2 (no reportada como energía válida)
-    f_gen=74919.30 | energía simulada=8614.29 kWh
+    f_gen=77319.30 | energía simulada=8614.29 kWh
     clientes=150/150 | faltantes=ninguno | duplicados=0
-    viol_batería=1005.6801 kWh | viol_capacidad=0.0000 kg
+    viol_batería=1005.6801 kWh | viol_capacidad=0.0000 kg | est_compartidas=8 | veh_excedidos=0
     rutas=5 | visitas_estaciones=49
-    causas: violación batería (1005.68 kWh)
-105.8s
+    causas: violación batería (1005.68 kWh), estaciones compartidas (8)
+99.7s
   [0%] C150R4-1 (35/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R4-1 (no reportada como energía válida)
-    f_gen=25118.43 | energía simulada=7858.76 kWh
+    f_gen=29318.43 | energía simulada=7858.76 kWh
     clientes=150/150 | faltantes=ninguno | duplicados=0
-    viol_batería=297.4893 kWh | viol_capacidad=0.0000 kg
+    viol_batería=297.4893 kWh | viol_capacidad=0.0000 kg | est_compartidas=14 | veh_excedidos=0
     rutas=5 | visitas_estaciones=86
-    causas: violación batería (297.49 kWh)
-101.1s
+    causas: violación batería (297.49 kWh), estaciones compartidas (14)
+93.8s
   [0%] C150R4-2 (36/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R4-2 (no reportada como energía válida)
-    f_gen=39244.82 | energía simulada=8203.95 kWh
+    f_gen=43744.82 | energía simulada=8203.95 kWh
     clientes=150/150 | faltantes=ninguno | duplicados=0
-    viol_batería=434.0971 kWh | viol_capacidad=0.0000 kg
+    viol_batería=434.0971 kWh | viol_capacidad=0.0000 kg | est_compartidas=15 | veh_excedidos=0
     rutas=5 | visitas_estaciones=62
-    causas: violación batería (434.10 kWh)
-93.1s
-  [0%] C150R6-1 (37/40)... 94.1s
-  [0%] C150R6-2 (38/40)... 95.3s
-  [0%] C150R8-1 (39/40)... 90.9s
-  [0%] C150R8-2 (40/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R8-2 (no reportada como energía válida)
-    f_gen=15410.18 | energía simulada=7627.89 kWh
+    causas: violación batería (434.10 kWh), estaciones compartidas (15)
+87.8s
+  [0%] C150R6-1 (37/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R6-1 (no reportada como energía válida)
+    f_gen=14066.32 | energía simulada=7466.32 kWh
     clientes=150/150 | faltantes=ninguno | duplicados=0
-    viol_batería=130.4368 kWh | viol_capacidad=0.0000 kg
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=22 | veh_excedidos=0
+    rutas=5 | visitas_estaciones=81
+    causas: estaciones compartidas (22)
+88.7s
+  [0%] C150R6-2 (38/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R6-2 (no reportada como energía válida)
+    f_gen=13305.00 | energía simulada=7305.00 kWh
+    clientes=150/150 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=20 | veh_excedidos=0
+    rutas=5 | visitas_estaciones=88
+    causas: estaciones compartidas (20)
+90.9s
+  [0%] C150R8-1 (39/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R8-1 (no reportada como energía válida)
+    f_gen=15209.23 | energía simulada=6809.23 kWh
+    clientes=150/150 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=28 | veh_excedidos=0
+    rutas=5 | visitas_estaciones=97
+    causas: estaciones compartidas (28)
+83.7s
+  [0%] C150R8-2 (40/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R8-2 (no reportada como energía válida)
+    f_gen=23210.18 | energía simulada=7627.89 kWh
+    clientes=150/150 | faltantes=ninguno | duplicados=0
+    viol_batería=130.4368 kWh | viol_capacidad=0.0000 kg | est_compartidas=26 | veh_excedidos=0
     rutas=5 | visitas_estaciones=95
-    causas: violación batería (130.44 kWh)
-98.1s
-    0%     110      2750.67      38.23
+    causas: violación batería (130.44 kWh), estaciones compartidas (26)
+89.3s
+    0%     110      1131.14      38.23
   [10%] C25R2-1 (1/40)...   [MEJOR CANDIDATO INFACTIBLE] C25R2-1 (no reportada como energía válida)
     f_gen=1878.81 | energía simulada=1503.47 kWh
     clientes=25/25 | faltantes=ninguno | duplicados=0
-    viol_batería=183.2262 kWh | viol_capacidad=0.0000 kg
+    viol_batería=183.2262 kWh | viol_capacidad=0.0000 kg | est_compartidas=0 | veh_excedidos=0
     rutas=1 | visitas_estaciones=10
     causas: violación batería (183.23 kWh)
 4.3s
   [10%] C25R2-2 (2/40)...   [MEJOR CANDIDATO INFACTIBLE] C25R2-2 (no reportada como energía válida)
     f_gen=2086.57 | energía simulada=1456.04 kWh
     clientes=25/25 | faltantes=ninguno | duplicados=0
-    viol_batería=158.2628 kWh | viol_capacidad=0.0000 kg
+    viol_batería=158.2628 kWh | viol_capacidad=0.0000 kg | est_compartidas=0 | veh_excedidos=0
     rutas=1 | visitas_estaciones=13
     causas: violación batería (158.26 kWh)
 4.0s
-  [10%] C25R4-1 (3/40)... 4.2s
-  [10%] C25R4-2 (4/40)... 4.1s
-  [10%] C25R6-1 (5/40)... 5.6s
-  [10%] C25R6-2 (6/40)... 5.6s
+  [10%] C25R4-1 (3/40)... 4.1s
+  [10%] C25R4-2 (4/40)... 4.2s
+  [10%] C25R6-1 (5/40)... 5.5s
+  [10%] C25R6-2 (6/40)... 5.1s
   [10%] C25R8-1 (7/40)... 7.1s
-  [10%] C25R8-2 (8/40)... 6.5s
+  [10%] C25R8-2 (8/40)... 6.3s
   [10%] C50R2-1 (9/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R2-1 (no reportada como energía válida)
-    f_gen=1606.66 | energía simulada=1606.66 kWh
+    f_gen=1787.32 | energía simulada=1659.08 kWh
     clientes=50/50 | faltantes=ninguno | duplicados=0
-    viol_batería=4.3267 kWh | viol_capacidad=0.0000 kg
+    viol_batería=34.1246 kWh | viol_capacidad=0.0000 kg | est_compartidas=0 | veh_excedidos=0
     rutas=2 | visitas_estaciones=7
-    causas: violación batería (4.33 kWh)
-  [MEJOR CANDIDATO FACTIBLE EN BÚSQUEDA] f_gen=1613.74 | energía=1613.74 kWh | clientes=50/50
-27.8s
+    causas: violación batería (34.12 kWh)
+17.0s
   [10%] C50R2-2 (10/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R2-2 (no reportada como energía válida)
-    f_gen=1784.66 | energía simulada=1784.66 kWh
+    f_gen=2002.90 | energía simulada=2002.90 kWh
     clientes=50/50 | faltantes=ninguno | duplicados=0
-    viol_batería=28.6615 kWh | viol_capacidad=0.0000 kg
-    rutas=2 | visitas_estaciones=4
-    causas: violación batería (28.66 kWh)
-  [MEJOR CANDIDATO FACTIBLE EN BÚSQUEDA] f_gen=1891.14 | energía=1891.14 kWh | clientes=50/50
-14.9s
-  [10%] C50R4-1 (11/40)... 19.0s
-  [10%] C50R4-2 (12/40)... 19.4s
-  [10%] C50R6-1 (13/40)... 13.2s
-  [10%] C50R6-2 (14/40)... 26.8s
-  [10%] C50R8-1 (15/40)... 30.0s
-  [10%] C50R8-2 (16/40)... 21.4s
+    viol_batería=39.7150 kWh | viol_capacidad=0.0000 kg | est_compartidas=0 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=6
+    causas: violación batería (39.71 kWh)
+13.2s
+  [10%] C50R4-1 (11/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R4-1 (no reportada como energía válida)
+    f_gen=1996.61 | energía simulada=1696.61 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=1 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=10
+    causas: estaciones compartidas (1)
+15.0s
+  [10%] C50R4-2 (12/40)... 25.6s
+  [10%] C50R6-1 (13/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R6-1 (no reportada como energía válida)
+    f_gen=2715.08 | energía simulada=1815.08 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=3 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=18
+    causas: estaciones compartidas (3)
+12.7s
+  [10%] C50R6-2 (14/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R6-2 (no reportada como energía válida)
+    f_gen=1988.07 | energía simulada=1388.07 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=2 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=9
+    causas: estaciones compartidas (2)
+26.5s
+  [10%] C50R8-1 (15/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R8-1 (no reportada como energía válida)
+    f_gen=2458.05 | energía simulada=1558.05 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=3 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=15
+    causas: estaciones compartidas (3)
+27.6s
+  [10%] C50R8-2 (16/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R8-2 (no reportada como energía válida)
+    f_gen=2577.40 | energía simulada=1677.40 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=3 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=18
+    causas: estaciones compartidas (3)
+19.2s
   [10%] C75R2-1 (17/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R2-1 (no reportada como energía válida)
     f_gen=308435.05 | energía simulada=5037.90 kWh
     clientes=75/75 | faltantes=ninguno | duplicados=0
-    viol_batería=3284.1308 kWh | viol_capacidad=0.0000 kg
+    viol_batería=3284.1308 kWh | viol_capacidad=0.0000 kg | est_compartidas=0 | veh_excedidos=0
     rutas=3 | visitas_estaciones=9
     causas: violación batería (3284.13 kWh)
 300.0s (TL)
   [10%] C75R2-2 (18/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R2-2 (no reportada como energía válida)
-    f_gen=27459.39 | energía simulada=4630.28 kWh
+    f_gen=28659.39 | energía simulada=4630.28 kWh
     clientes=75/75 | faltantes=ninguno | duplicados=0
-    viol_batería=305.4439 kWh | viol_capacidad=0.0000 kg
+    viol_batería=305.4439 kWh | viol_capacidad=0.0000 kg | est_compartidas=4 | veh_excedidos=0
     rutas=3 | visitas_estaciones=30
-    causas: violación batería (305.44 kWh)
-41.5s
+    causas: violación batería (305.44 kWh), estaciones compartidas (4)
+38.9s
   [10%] C75R4-1 (19/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R4-1 (no reportada como energía válida)
-    f_gen=10723.56 | energía simulada=3872.96 kWh
+    f_gen=12823.56 | energía simulada=3872.96 kWh
     clientes=75/75 | faltantes=ninguno | duplicados=0
-    viol_batería=84.7769 kWh | viol_capacidad=0.0000 kg
+    viol_batería=84.7769 kWh | viol_capacidad=0.0000 kg | est_compartidas=7 | veh_excedidos=0
     rutas=3 | visitas_estaciones=26
-    causas: violación batería (84.78 kWh)
-43.6s
+    causas: violación batería (84.78 kWh), estaciones compartidas (7)
+39.9s
   [10%] C75R4-2 (20/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R4-2 (no reportada como energía válida)
-    f_gen=17615.09 | energía simulada=3942.12 kWh
+    f_gen=19115.09 | energía simulada=3942.12 kWh
     clientes=75/75 | faltantes=ninguno | duplicados=0
-    viol_batería=147.7298 kWh | viol_capacidad=0.0000 kg
+    viol_batería=147.7298 kWh | viol_capacidad=0.0000 kg | est_compartidas=5 | veh_excedidos=0
     rutas=3 | visitas_estaciones=41
-    causas: violación batería (147.73 kWh)
-33.2s
-  [10%] C75R6-1 (21/40)... 35.5s
-  [10%] C75R6-2 (22/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R6-2 (no reportada como energía válida)
-    f_gen=7497.92 | energía simulada=4235.70 kWh
+    causas: violación batería (147.73 kWh), estaciones compartidas (5)
+31.4s
+  [10%] C75R6-1 (21/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R6-1 (no reportada como energía válida)
+    f_gen=6385.93 | energía simulada=3685.93 kWh
     clientes=75/75 | faltantes=ninguno | duplicados=0
-    viol_batería=66.1982 kWh | viol_capacidad=0.0000 kg
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=9 | veh_excedidos=0
+    rutas=3 | visitas_estaciones=44
+    causas: estaciones compartidas (9)
+34.5s
+  [10%] C75R6-2 (22/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R6-2 (no reportada como energía válida)
+    f_gen=9597.92 | energía simulada=4235.70 kWh
+    clientes=75/75 | faltantes=ninguno | duplicados=0
+    viol_batería=66.1982 kWh | viol_capacidad=0.0000 kg | est_compartidas=7 | veh_excedidos=0
     rutas=3 | visitas_estaciones=45
-    causas: violación batería (66.20 kWh)
-40.1s
-  [10%] C75R8-1 (23/40)... 35.8s
-  [10%] C75R8-2 (24/40)... 34.4s
+    causas: violación batería (66.20 kWh), estaciones compartidas (7)
+38.9s
+  [10%] C75R8-1 (23/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R8-1 (no reportada como energía válida)
+    f_gen=7400.02 | energía simulada=3800.02 kWh
+    clientes=75/75 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=12 | veh_excedidos=0
+    rutas=3 | visitas_estaciones=48
+    causas: estaciones compartidas (12)
+34.4s
+  [10%] C75R8-2 (24/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R8-2 (no reportada como energía válida)
+    f_gen=7008.36 | energía simulada=3408.36 kWh
+    clientes=75/75 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=12 | veh_excedidos=0
+    rutas=3 | visitas_estaciones=58
+    causas: estaciones compartidas (12)
+33.4s
   [10%] C100R2-1 (25/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R2-1 (no reportada como energía válida)
-    f_gen=13541.10 | energía simulada=5542.62 kWh
+    f_gen=15341.10 | energía simulada=5542.62 kWh
     clientes=100/100 | faltantes=ninguno | duplicados=0
-    viol_batería=348.9494 kWh | viol_capacidad=0.0000 kg
+    viol_batería=348.9494 kWh | viol_capacidad=0.0000 kg | est_compartidas=6 | veh_excedidos=0
     rutas=4 | visitas_estaciones=32
-    causas: violación batería (348.95 kWh)
-73.1s
-  [10%] C100R2-2 (26/40)... 66.5s
-  [10%] C100R4-1 (27/40)... 61.0s
+    causas: violación batería (348.95 kWh), estaciones compartidas (6)
+70.7s
+  [10%] C100R2-2 (26/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R2-2 (no reportada como energía válida)
+    f_gen=6817.91 | energía simulada=5317.91 kWh
+    clientes=100/100 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=5 | veh_excedidos=0
+    rutas=4 | visitas_estaciones=44
+    causas: estaciones compartidas (5)
+64.2s
+  [10%] C100R4-1 (27/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R4-1 (no reportada como energía válida)
+    f_gen=7993.23 | energía simulada=4993.23 kWh
+    clientes=100/100 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=10 | veh_excedidos=0
+    rutas=4 | visitas_estaciones=50
+    causas: estaciones compartidas (10)
+58.7s
   [10%] C100R4-2 (28/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R4-2 (no reportada como energía válida)
-    f_gen=4834.58 | energía simulada=4834.58 kWh
+    f_gen=7834.58 | energía simulada=4834.58 kWh
     clientes=100/100 | faltantes=ninguno | duplicados=0
-    viol_batería=91.0027 kWh | viol_capacidad=0.0000 kg
+    viol_batería=91.0027 kWh | viol_capacidad=0.0000 kg | est_compartidas=10 | veh_excedidos=0
     rutas=4 | visitas_estaciones=49
-    causas: violación batería (91.00 kWh)
-59.1s
+    causas: violación batería (91.00 kWh), estaciones compartidas (10)
+56.8s
   [10%] C100R6-1 (29/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R6-1 (no reportada como energía válida)
-    f_gen=7799.28 | energía simulada=4774.32 kWh
+    f_gen=11699.28 | energía simulada=4774.32 kWh
     clientes=100/100 | faltantes=ninguno | duplicados=0
-    viol_batería=41.2495 kWh | viol_capacidad=0.0000 kg
+    viol_batería=41.2495 kWh | viol_capacidad=0.0000 kg | est_compartidas=13 | veh_excedidos=0
     rutas=4 | visitas_estaciones=53
-    causas: violación batería (41.25 kWh)
-58.9s
+    causas: violación batería (41.25 kWh), estaciones compartidas (13)
+56.7s
   [10%] C100R6-2 (30/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R6-2 (no reportada como energía válida)
-    f_gen=11307.92 | energía simulada=4613.65 kWh
+    f_gen=14907.92 | energía simulada=4613.65 kWh
     clientes=100/100 | faltantes=ninguno | duplicados=0
-    viol_batería=84.7204 kWh | viol_capacidad=0.0000 kg
+    viol_batería=84.7204 kWh | viol_capacidad=0.0000 kg | est_compartidas=12 | veh_excedidos=0
     rutas=4 | visitas_estaciones=72
-    causas: violación batería (84.72 kWh)
-51.0s
-  [10%] C100R8-1 (31/40)... 57.7s
-  [10%] C100R8-2 (32/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R8-2 (no reportada como energía válida)
-    f_gen=14777.64 | energía simulada=4876.54 kWh
+    causas: violación batería (84.72 kWh), estaciones compartidas (12)
+49.3s
+  [10%] C100R8-1 (31/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R8-1 (no reportada como energía válida)
+    f_gen=8289.84 | energía simulada=4689.84 kWh
     clientes=100/100 | faltantes=ninguno | duplicados=0
-    viol_batería=194.1170 kWh | viol_capacidad=0.0000 kg
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=12 | veh_excedidos=0
+    rutas=4 | visitas_estaciones=57
+    causas: estaciones compartidas (12)
+55.1s
+  [10%] C100R8-2 (32/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R8-2 (no reportada como energía válida)
+    f_gen=18977.64 | energía simulada=4876.54 kWh
+    clientes=100/100 | faltantes=ninguno | duplicados=0
+    viol_batería=194.1170 kWh | viol_capacidad=0.0000 kg | est_compartidas=14 | veh_excedidos=0
     rutas=4 | visitas_estaciones=68
-    causas: violación batería (194.12 kWh)
-60.7s
+    causas: violación batería (194.12 kWh), estaciones compartidas (14)
+58.5s
   [10%] C150R2-1 (33/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R2-1 (no reportada como energía válida)
-    f_gen=297524.88 | energía simulada=8331.93 kWh
+    f_gen=298124.88 | energía simulada=8331.93 kWh
     clientes=150/150 | faltantes=ninguno | duplicados=0
-    viol_batería=3363.1593 kWh | viol_capacidad=0.0000 kg
+    viol_batería=3363.1593 kWh | viol_capacidad=0.0000 kg | est_compartidas=2 | veh_excedidos=0
     rutas=5 | visitas_estaciones=29
-    causas: violación batería (3363.16 kWh)
-205.3s
+    causas: violación batería (3363.16 kWh), estaciones compartidas (2)
+199.7s
   [10%] C150R2-2 (34/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R2-2 (no reportada como energía válida)
-    f_gen=177521.95 | energía simulada=8915.39 kWh
+    f_gen=179321.95 | energía simulada=8915.39 kWh
     clientes=150/150 | faltantes=ninguno | duplicados=0
-    viol_batería=2057.5699 kWh | viol_capacidad=0.0000 kg
+    viol_batería=2057.5699 kWh | viol_capacidad=0.0000 kg | est_compartidas=6 | veh_excedidos=0
     rutas=5 | visitas_estaciones=47
-    causas: violación batería (2057.57 kWh)
+    causas: violación batería (2057.57 kWh), estaciones compartidas (6)
 300.0s (TL)
   [10%] C150R4-1 (35/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R4-1 (no reportada como energía válida)
-    f_gen=9733.19 | energía simulada=7868.57 kWh
+    f_gen=13933.19 | energía simulada=7868.57 kWh
     clientes=150/150 | faltantes=ninguno | duplicados=0
-    viol_batería=102.6289 kWh | viol_capacidad=0.0000 kg
+    viol_batería=102.6289 kWh | viol_capacidad=0.0000 kg | est_compartidas=14 | veh_excedidos=0
     rutas=5 | visitas_estaciones=88
-    causas: violación batería (102.63 kWh)
-93.7s
+    causas: violación batería (102.63 kWh), estaciones compartidas (14)
+94.0s
   [10%] C150R4-2 (36/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R4-2 (no reportada como energía válida)
-    f_gen=34739.65 | energía simulada=8300.81 kWh
+    f_gen=39539.65 | energía simulada=8300.81 kWh
     clientes=150/150 | faltantes=ninguno | duplicados=0
-    viol_batería=315.1464 kWh | viol_capacidad=0.0000 kg
+    viol_batería=315.1464 kWh | viol_capacidad=0.0000 kg | est_compartidas=16 | veh_excedidos=0
     rutas=5 | visitas_estaciones=67
-    causas: violación batería (315.15 kWh)
-85.6s
-  [10%] C150R6-1 (37/40)... 86.3s
-  [10%] C150R6-2 (38/40)... 89.7s
-  [10%] C150R8-1 (39/40)... 82.6s
-  [10%] C150R8-2 (40/40)... 88.1s
-   10%      99      3230.00      37.80
+    causas: violación batería (315.15 kWh), estaciones compartidas (16)
+88.8s
+  [10%] C150R6-1 (37/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R6-1 (no reportada como energía válida)
+    f_gen=14066.32 | energía simulada=7466.32 kWh
+    clientes=150/150 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=22 | veh_excedidos=0
+    rutas=5 | visitas_estaciones=81
+    causas: estaciones compartidas (22)
+89.1s
+  [10%] C150R6-2 (38/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R6-2 (no reportada como energía válida)
+    f_gen=13305.00 | energía simulada=7305.00 kWh
+    clientes=150/150 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=20 | veh_excedidos=0
+    rutas=5 | visitas_estaciones=88
+    causas: estaciones compartidas (20)
+88.0s
+  [10%] C150R8-1 (39/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R8-1 (no reportada como energía válida)
+    f_gen=15196.86 | energía simulada=6796.86 kWh
+    clientes=150/150 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=28 | veh_excedidos=0
+    rutas=5 | visitas_estaciones=97
+    causas: estaciones compartidas (28)
+79.3s
+  [10%] C150R8-2 (40/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R8-2 (no reportada como energía válida)
+    f_gen=15405.16 | energía simulada=7605.16 kWh
+    clientes=150/150 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=26 | veh_excedidos=0
+    rutas=5 | visitas_estaciones=96
+    causas: estaciones compartidas (26)
+86.2s
+   10%      99      1160.18      38.02
   [20%] C25R2-1 (1/40)...   [MEJOR CANDIDATO INFACTIBLE] C25R2-1 (no reportada como energía válida)
     f_gen=2978.81 | energía simulada=1503.47 kWh
     clientes=25/25 | faltantes=ninguno | duplicados=0
-    viol_batería=183.2262 kWh | viol_capacidad=0.0000 kg
+    viol_batería=183.2262 kWh | viol_capacidad=0.0000 kg | est_compartidas=0 | veh_excedidos=0
     rutas=1 | visitas_estaciones=10
     causas: violación batería (183.23 kWh)
-4.2s
+4.0s
   [20%] C25R2-2 (2/40)...   [MEJOR CANDIDATO INFACTIBLE] C25R2-2 (no reportada como energía válida)
     f_gen=2699.06 | energía simulada=1324.16 kWh
     clientes=25/25 | faltantes=ninguno | duplicados=0
-    viol_batería=166.3473 kWh | viol_capacidad=0.0000 kg
+    viol_batería=166.3473 kWh | viol_capacidad=0.0000 kg | est_compartidas=0 | veh_excedidos=0
     rutas=1 | visitas_estaciones=11
     causas: violación batería (166.35 kWh)
-4.1s
+3.9s
   [20%] C25R4-1 (3/40)... 4.0s
-  [20%] C25R4-2 (4/40)... 4.1s
-  [20%] C25R6-1 (5/40)... 5.5s
-  [20%] C25R6-2 (6/40)... 5.1s
-  [20%] C25R8-1 (7/40)... 6.7s
-  [20%] C25R8-2 (8/40)... 6.4s
-  [20%] C50R2-1 (9/40)... 26.8s
-  [20%] C50R2-2 (10/40)... 25.6s
-  [20%] C50R4-1 (11/40)... 25.4s
-  [20%] C50R4-2 (12/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R4-2 (no reportada como energía válida)
-    f_gen=1458.46 | energía simulada=1458.46 kWh
+  [20%] C25R4-2 (4/40)... 4.0s
+  [20%] C25R6-1 (5/40)... 5.3s
+  [20%] C25R6-2 (6/40)... 5.0s
+  [20%] C25R8-1 (7/40)... 6.5s
+  [20%] C25R8-2 (8/40)... 6.1s
+  [20%] C50R2-1 (9/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R2-1 (no reportada como energía válida)
+    f_gen=1913.80 | energía simulada=1613.80 kWh
     clientes=50/50 | faltantes=ninguno | duplicados=0
-    viol_batería=31.7475 kWh | viol_capacidad=0.0000 kg
-    rutas=2 | visitas_estaciones=5
-    causas: violación batería (31.75 kWh)
-  [MEJOR CANDIDATO FACTIBLE EN BÚSQUEDA] f_gen=1493.47 | energía=1493.47 kWh | clientes=50/50
-17.1s
-  [20%] C50R6-1 (13/40)... 25.8s
-  [20%] C50R6-2 (14/40)... 26.1s
-  [20%] C50R8-1 (15/40)... 20.2s
-  [20%] C50R8-2 (16/40)... 19.6s
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=1 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=7
+    causas: estaciones compartidas (1)
+18.5s
+  [20%] C50R2-2 (10/40)... 25.8s
+  [20%] C50R4-1 (11/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R4-1 (no reportada como energía válida)
+    f_gen=1924.90 | energía simulada=1624.90 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=1 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=9
+    causas: estaciones compartidas (1)
+24.5s
+  [20%] C50R4-2 (12/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R4-2 (no reportada como energía válida)
+    f_gen=1506.22 | energía simulada=1506.22 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=26.2047 kWh | viol_capacidad=0.0000 kg | est_compartidas=0 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=6
+    causas: violación batería (26.20 kWh)
+21.9s
+  [20%] C50R6-1 (13/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R6-1 (no reportada como energía válida)
+    f_gen=2489.12 | energía simulada=1889.12 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=2 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=21
+    causas: estaciones compartidas (2)
+36.9s
+  [20%] C50R6-2 (14/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R6-2 (no reportada como energía válida)
+    f_gen=2471.51 | energía simulada=1571.51 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=3 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=13
+    causas: estaciones compartidas (3)
+41.6s
+  [20%] C50R8-1 (15/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R8-1 (no reportada como energía válida)
+    f_gen=2258.96 | energía simulada=1658.96 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=2 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=17
+    causas: estaciones compartidas (2)
+45.9s
+  [20%] C50R8-2 (16/40)...   [MEJOR CANDIDATO INFACTIBLE] C50R8-2 (no reportada como energía válida)
+    f_gen=2671.15 | energía simulada=1771.15 kWh
+    clientes=50/50 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=3 | veh_excedidos=0
+    rutas=2 | visitas_estaciones=18
+    causas: estaciones compartidas (3)
+33.4s
   [20%] C75R2-1 (17/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R2-1 (no reportada como energía válida)
     f_gen=304528.25 | energía simulada=5057.62 kWh
     clientes=75/75 | faltantes=ninguno | duplicados=0
-    viol_batería=3282.0778 kWh | viol_capacidad=0.0000 kg
+    viol_batería=3282.0778 kWh | viol_capacidad=0.0000 kg | est_compartidas=0 | veh_excedidos=0
     rutas=3 | visitas_estaciones=10
     causas: violación batería (3282.08 kWh)
 300.0s (TL)
   [20%] C75R2-2 (18/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R2-2 (no reportada como energía válida)
-    f_gen=25200.48 | energía simulada=4658.15 kWh
+    f_gen=26400.48 | energía simulada=4658.15 kWh
     clientes=75/75 | faltantes=ninguno | duplicados=0
-    viol_batería=293.5760 kWh | viol_capacidad=0.0000 kg
+    viol_batería=293.5760 kWh | viol_capacidad=0.0000 kg | est_compartidas=4 | veh_excedidos=0
     rutas=3 | visitas_estaciones=30
-    causas: violación batería (293.58 kWh)
-41.1s
+    causas: violación batería (293.58 kWh), estaciones compartidas (4)
+66.3s
   [20%] C75R4-1 (19/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R4-1 (no reportada como energía válida)
-    f_gen=10737.98 | energía simulada=3887.38 kWh
+    f_gen=12837.98 | energía simulada=3887.38 kWh
     clientes=75/75 | faltantes=ninguno | duplicados=0
-    viol_batería=90.5059 kWh | viol_capacidad=0.0000 kg
+    viol_batería=90.5059 kWh | viol_capacidad=0.0000 kg | est_compartidas=7 | veh_excedidos=0
     rutas=3 | visitas_estaciones=27
-    causas: violación batería (90.51 kWh)
-40.4s
-  [20%] C75R4-2 (20/40)... 32.0s
-  [20%] C75R6-1 (21/40)... 36.2s
-  [20%] C75R6-2 (22/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R6-2 (no reportada como energía válida)
-    f_gen=7509.30 | energía simulada=4247.09 kWh
+    causas: violación batería (90.51 kWh), estaciones compartidas (7)
+68.7s
+  [20%] C75R4-2 (20/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R4-2 (no reportada como energía válida)
+    f_gen=5399.50 | energía simulada=3899.50 kWh
     clientes=75/75 | faltantes=ninguno | duplicados=0
-    viol_batería=66.1982 kWh | viol_capacidad=0.0000 kg
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=5 | veh_excedidos=0
     rutas=3 | visitas_estaciones=45
-    causas: violación batería (66.20 kWh)
-40.6s
-  [20%] C75R8-1 (23/40)... 36.2s
-  [20%] C75R8-2 (24/40)... 34.1s
+    causas: estaciones compartidas (5)
+49.1s
+  [20%] C75R6-1 (21/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R6-1 (no reportada como energía válida)
+    f_gen=6378.13 | energía simulada=3678.13 kWh
+    clientes=75/75 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=9 | veh_excedidos=0
+    rutas=3 | visitas_estaciones=43
+    causas: estaciones compartidas (9)
+56.2s
+  [20%] C75R6-2 (22/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R6-2 (no reportada como energía válida)
+    f_gen=9609.30 | energía simulada=4247.09 kWh
+    clientes=75/75 | faltantes=ninguno | duplicados=0
+    viol_batería=66.1982 kWh | viol_capacidad=0.0000 kg | est_compartidas=7 | veh_excedidos=0
+    rutas=3 | visitas_estaciones=45
+    causas: violación batería (66.20 kWh), estaciones compartidas (7)
+66.2s
+  [20%] C75R8-1 (23/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R8-1 (no reportada como energía válida)
+    f_gen=7403.62 | energía simulada=3803.62 kWh
+    clientes=75/75 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=12 | veh_excedidos=0
+    rutas=3 | visitas_estaciones=48
+    causas: estaciones compartidas (12)
+52.0s
+  [20%] C75R8-2 (24/40)...   [MEJOR CANDIDATO INFACTIBLE] C75R8-2 (no reportada como energía válida)
+    f_gen=7008.36 | energía simulada=3408.36 kWh
+    clientes=75/75 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=12 | veh_excedidos=0
+    rutas=3 | visitas_estaciones=58
+    causas: estaciones compartidas (12)
+49.6s
   [20%] C100R2-1 (25/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R2-1 (no reportada como energía válida)
-    f_gen=11173.21 | energía simulada=5717.47 kWh
+    f_gen=12973.21 | energía simulada=5717.47 kWh
     clientes=100/100 | faltantes=ninguno | duplicados=0
-    viol_batería=316.4168 kWh | viol_capacidad=0.0000 kg
+    viol_batería=316.4168 kWh | viol_capacidad=0.0000 kg | est_compartidas=6 | veh_excedidos=0
     rutas=4 | visitas_estaciones=34
-    causas: violación batería (316.42 kWh)
-75.9s
-  [20%] C100R2-2 (26/40)... 67.8s
-  [20%] C100R4-1 (27/40)... 60.9s
+    causas: violación batería (316.42 kWh), estaciones compartidas (6)
+87.1s
+  [20%] C100R2-2 (26/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R2-2 (no reportada como energía válida)
+    f_gen=6828.40 | energía simulada=5328.40 kWh
+    clientes=100/100 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=5 | veh_excedidos=0
+    rutas=4 | visitas_estaciones=45
+    causas: estaciones compartidas (5)
+77.4s
+  [20%] C100R4-1 (27/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R4-1 (no reportada como energía válida)
+    f_gen=8045.68 | energía simulada=5045.68 kWh
+    clientes=100/100 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=10 | veh_excedidos=0
+    rutas=4 | visitas_estaciones=50
+    causas: estaciones compartidas (10)
+70.0s
   [20%] C100R4-2 (28/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R4-2 (no reportada como energía válida)
-    f_gen=4870.73 | energía simulada=4870.73 kWh
+    f_gen=7870.73 | energía simulada=4870.73 kWh
     clientes=100/100 | faltantes=ninguno | duplicados=0
-    viol_batería=91.0027 kWh | viol_capacidad=0.0000 kg
+    viol_batería=91.0027 kWh | viol_capacidad=0.0000 kg | est_compartidas=10 | veh_excedidos=0
     rutas=4 | visitas_estaciones=48
-    causas: violación batería (91.00 kWh)
-62.0s
+    causas: violación batería (91.00 kWh), estaciones compartidas (10)
+91.8s
   [20%] C100R6-1 (29/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R6-1 (no reportada como energía válida)
-    f_gen=6594.68 | energía simulada=4858.56 kWh
+    f_gen=10494.68 | energía simulada=4858.56 kWh
     clientes=100/100 | faltantes=ninguno | duplicados=0
-    viol_batería=39.3611 kWh | viol_capacidad=0.0000 kg
+    viol_batería=39.3611 kWh | viol_capacidad=0.0000 kg | est_compartidas=13 | veh_excedidos=0
     rutas=4 | visitas_estaciones=56
-    causas: violación batería (39.36 kWh)
-60.5s
-  [20%] C100R6-2 (30/40)... 50.8s
-  [20%] C100R8-1 (31/40)... 58.7s
-  [20%] C100R8-2 (32/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R8-2 (no reportada como energía válida)
-    f_gen=10079.03 | energía simulada=5028.29 kWh
+    causas: violación batería (39.36 kWh), estaciones compartidas (13)
+91.1s
+  [20%] C100R6-2 (30/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R6-2 (no reportada como energía válida)
+    f_gen=8226.67 | energía simulada=4626.67 kWh
     clientes=100/100 | faltantes=ninguno | duplicados=0
-    viol_batería=122.9631 kWh | viol_capacidad=0.0000 kg
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=12 | veh_excedidos=0
+    rutas=4 | visitas_estaciones=76
+    causas: estaciones compartidas (12)
+60.0s
+  [20%] C100R8-1 (31/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R8-1 (no reportada como energía válida)
+    f_gen=8318.84 | energía simulada=4718.84 kWh
+    clientes=100/100 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=12 | veh_excedidos=0
+    rutas=4 | visitas_estaciones=59
+    causas: estaciones compartidas (12)
+68.5s
+  [20%] C100R8-2 (32/40)...   [MEJOR CANDIDATO INFACTIBLE] C100R8-2 (no reportada como energía válida)
+    f_gen=14579.03 | energía simulada=5028.29 kWh
+    clientes=100/100 | faltantes=ninguno | duplicados=0
+    viol_batería=122.9631 kWh | viol_capacidad=0.0000 kg | est_compartidas=15 | veh_excedidos=0
     rutas=4 | visitas_estaciones=74
-    causas: violación batería (122.96 kWh)
-61.4s
+    causas: violación batería (122.96 kWh), estaciones compartidas (15)
+93.6s
   [20%] C150R2-1 (33/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R2-1 (no reportada como energía válida)
-    f_gen=341536.19 | energía simulada=8503.74 kWh
+    f_gen=342736.19 | energía simulada=8503.74 kWh
     clientes=150/150 | faltantes=ninguno | duplicados=0
-    viol_batería=3457.2453 kWh | viol_capacidad=0.0000 kg
+    viol_batería=3457.2453 kWh | viol_capacidad=0.0000 kg | est_compartidas=4 | veh_excedidos=0
     rutas=5 | visitas_estaciones=38
-    causas: violación batería (3457.25 kWh)
+    causas: violación batería (3457.25 kWh), estaciones compartidas (4)
 300.0s (TL)
   [20%] C150R2-2 (34/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R2-2 (no reportada como energía válida)
-    f_gen=178746.68 | energía simulada=9040.12 kWh
+    f_gen=180546.68 | energía simulada=9040.12 kWh
     clientes=150/150 | faltantes=ninguno | duplicados=0
-    viol_batería=2074.4053 kWh | viol_capacidad=0.0000 kg
+    viol_batería=2074.4053 kWh | viol_capacidad=0.0000 kg | est_compartidas=6 | veh_excedidos=0
     rutas=5 | visitas_estaciones=45
-    causas: violación batería (2074.41 kWh)
+    causas: violación batería (2074.41 kWh), estaciones compartidas (6)
 300.0s (TL)
   [20%] C150R4-1 (35/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R4-1 (no reportada como energía válida)
-    f_gen=8964.63 | energía simulada=8094.31 kWh
+    f_gen=13164.63 | energía simulada=8094.31 kWh
     clientes=150/150 | faltantes=ninguno | duplicados=0
-    viol_batería=31.0749 kWh | viol_capacidad=0.0000 kg
+    viol_batería=31.0749 kWh | viol_capacidad=0.0000 kg | est_compartidas=14 | veh_excedidos=0
     rutas=5 | visitas_estaciones=95
-    causas: violación batería (31.07 kWh)
-93.1s
+    causas: violación batería (31.07 kWh), estaciones compartidas (14)
+132.8s
   [20%] C150R4-2 (36/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R4-2 (no reportada como energía válida)
-    f_gen=17344.86 | energía simulada=8184.03 kWh
+    f_gen=22144.86 | energía simulada=8184.03 kWh
     clientes=150/150 | faltantes=ninguno | duplicados=0
-    viol_batería=139.7929 kWh | viol_capacidad=0.0000 kg
+    viol_batería=139.7929 kWh | viol_capacidad=0.0000 kg | est_compartidas=16 | veh_excedidos=0
     rutas=5 | visitas_estaciones=68
-    causas: violación batería (139.79 kWh)
-85.8s
-  [20%] C150R6-1 (37/40)... 87.1s
-  [20%] C150R6-2 (38/40)... 91.7s
-  [20%] C150R8-1 (39/40)... 81.7s
-  [20%] C150R8-2 (40/40)... 88.4s
-   20%      88      3286.40      39.20
+    causas: violación batería (139.79 kWh), estaciones compartidas (16)
+106.3s
+  [20%] C150R6-1 (37/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R6-1 (no reportada como energía válida)
+    f_gen=14098.54 | energía simulada=7498.54 kWh
+    clientes=150/150 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=22 | veh_excedidos=0
+    rutas=5 | visitas_estaciones=81
+    causas: estaciones compartidas (22)
+129.8s
+  [20%] C150R6-2 (38/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R6-2 (no reportada como energía válida)
+    f_gen=13281.87 | energía simulada=7281.87 kWh
+    clientes=150/150 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=20 | veh_excedidos=0
+    rutas=5 | visitas_estaciones=89
+    causas: estaciones compartidas (20)
+128.9s
+  [20%] C150R8-1 (39/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R8-1 (no reportada como energía válida)
+    f_gen=14909.65 | energía simulada=6809.65 kWh
+    clientes=150/150 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=27 | veh_excedidos=0
+    rutas=5 | visitas_estaciones=102
+    causas: estaciones compartidas (27)
+94.1s
+  [20%] C150R8-2 (40/40)...   [MEJOR CANDIDATO INFACTIBLE] C150R8-2 (no reportada como energía válida)
+    f_gen=15436.14 | energía simulada=7636.14 kWh
+    clientes=150/150 | faltantes=ninguno | duplicados=0
+    viol_batería=0.0000 kWh | viol_capacidad=0.0000 kg | est_compartidas=26 | veh_excedidos=0
+    rutas=5 | visitas_estaciones=95
+    causas: estaciones compartidas (26)
+98.7s
+   20%      88      1197.70      39.25
 
  Experimento completado :D

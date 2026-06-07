@@ -49,6 +49,8 @@ MAX_NEIGHBORHOOD_MOVES = 2000
 GAMMA_CAP = 200.0
 GAMMA_BATT = 100.0
 GAMMA_MISS = 5000.0
+GAMMA_STAT = 300.0
+GAMMA_VEH = 400.0
 UMBRAL = 100
 
 LARGE_NUM_RUNS_DEFAULT = 10
@@ -183,7 +185,7 @@ def _meta_float(meta: dict[str, str], *keys: str, default: float) -> float:
     return default
 
 
-def load_instance(name: str) -> tuple[list[Vertex], dict[tuple[int, int], Arc]]:
+def load_instance(name: str) -> tuple[list[Vertex], dict[tuple[int, int], Arc], int]:
     path = _instance_path(name)
     lines = [
         ln.strip()
@@ -212,6 +214,9 @@ def load_instance(name: str) -> tuple[list[Vertex], dict[tuple[int, int], Arc]]:
     eff_d = _meta_float(meta, "EFF_BATTERY_DISCHARGE", "EFF_D", default=EFF_D)
     eff_m = _meta_float(meta, "EFF_MOTOR", "EFF_M", default=EFF_M)
     curb_kg = _meta_float(meta, "CURB_WEIGHT_KG", default=VEHICLE_CURB_WEIGHT_KG)
+    max_vehicles = int(
+        _meta_float(meta, "MAX_VEHICLES", "NUM_VEHICLES", "VEHICLES", default=0)
+    )
 
     vertices: list[Vertex] = []
     id_map: dict[int, Vertex] = {}
@@ -320,7 +325,7 @@ def load_instance(name: str) -> tuple[list[Vertex], dict[tuple[int, int], Arc]]:
             * JOULES_TO_KWH
         )
         arcs[(a, b)] = Arc(a, b, dist, spd_ms, e_empty)
-    return vertices, arcs
+    return vertices, arcs, max_vehicles
 
 
 def arc_energy_kwh(arcs: dict, i: int, j: int, load_kg: float) -> float:
@@ -598,11 +603,22 @@ def repair_route_battery(
     return route
 
 
+def _station_conflict_count(
+    routes: list[list[int]], vertices: dict[int, Vertex]
+) -> int:
+    routes_per_station: dict[int, int] = {}
+    for route in routes:
+        for s in {i for i in route if vertices[i].is_station}:
+            routes_per_station[s] = routes_per_station.get(s, 0) + 1
+    return sum(k - 1 for k in routes_per_station.values() if k > 1)
+
+
 def validate_solution(
     routes: list[list[int]],
     vertices: dict[int, Vertex],
     arcs: dict,
     reserve_pct: float = 0.0,
+    max_vehicles: int = 0,
 ) -> dict:
     customer_ids = {v.idx for v in vertices.values() if v.is_customer}
     visited: list[int] = []
@@ -619,11 +635,15 @@ def validate_solution(
         capacity_violation += capacity_violation_kg(route, vertices)
     missing = sorted(customer_ids - set(visited))
     duplicate_visits = len(visited) - len(set(visited))
+    station_conflicts = _station_conflict_count(routes, vertices)
+    vehicle_violation = max(0, len(routes) - max_vehicles) if max_vehicles > 0 else 0
     feasible = (
         not missing
         and duplicate_visits == 0
         and battery_violation <= 1e-6
         and capacity_violation <= 1e-6
+        and station_conflicts == 0
+        and (max_vehicles <= 0 or vehicle_violation == 0)
     )
     return {
         "feasible": feasible,
@@ -634,6 +654,8 @@ def validate_solution(
         "capacity_violation_kg": capacity_violation,
         "customers_served": len(set(visited)),
         "customers_total": len(customer_ids),
+        "station_conflicts": station_conflicts,
+        "vehicle_violation": vehicle_violation,
     }
 
 
@@ -648,6 +670,12 @@ def _infeasibility_reasons(report: dict) -> list[str]:
     if report["capacity_violation_kg"] > 1e-6:
         reasons.append(
             f"violación capacidad ({report['capacity_violation_kg']:.2f} kg)"
+        )
+    if report.get("station_conflicts", 0) > 0:
+        reasons.append(f"estaciones compartidas ({report['station_conflicts']})")
+    if report.get("vehicle_violation", 0) > 0:
+        reasons.append(
+            f"vehículos excedidos ({report['vehicle_violation']} sobre el límite)"
         )
     return reasons or ["desconocida"]
 
@@ -685,7 +713,9 @@ def log_infeasible_candidate(
     )
     print(
         f"{indent}  viol_batería={report['battery_violation_kwh']:.4f} kWh | "
-        f"viol_capacidad={report['capacity_violation_kg']:.4f} kg"
+        f"viol_capacidad={report['capacity_violation_kg']:.4f} kg | "
+        f"est_compartidas={report.get('station_conflicts', 0)} | "
+        f"veh_excedidos={report.get('vehicle_violation', 0)}"
     )
     if routes_count is not None or station_visits is not None:
         parts = []
@@ -713,8 +743,11 @@ def _update_feasibility_trackers(
     reserve_pct: float,
     best_feasible: dict | None,
     best_infeasible: dict | None,
+    max_vehicles: int = 0,
 ) -> tuple[dict | None, dict | None]:
-    report = validate_solution(routes, vertices, arcs, reserve_pct)
+    report = validate_solution(
+        routes, vertices, arcs, reserve_pct, max_vehicles=max_vehicles
+    )
     entry = {"routes": routes, "f": f_val, "validation": report}
     if report["feasible"]:
         if best_feasible is None or f_val < best_feasible["f"] - 1e-6:
@@ -1436,14 +1469,36 @@ def missing_customers_penalty(
     return GAMMA_MISS * (missing + duplicates)
 
 
+def station_conflict_penalty(
+    routes: list[list[int]],
+    vertices: dict[int, Vertex],
+) -> float:
+    return GAMMA_STAT * _station_conflict_count(routes, vertices)
+
+
+def vehicle_limit_penalty(
+    routes: list[list[int]],
+    max_vehicles: int,
+) -> float:
+    if max_vehicles <= 0:
+        return 0.0
+    return GAMMA_VEH * max(0, len(routes) - max_vehicles)
+
+
 def f_gen_solution(
     routes: list[list[int]],
     vertices: dict[int, Vertex],
     arcs: dict,
     reserve_pct: float = 0.0,
+    max_vehicles: int = 0,
 ) -> float:
     energy_penalties = sum(f_gen_route(r, vertices, arcs, reserve_pct) for r in routes)
-    return energy_penalties + missing_customers_penalty(routes, vertices)
+    return (
+        energy_penalties
+        + missing_customers_penalty(routes, vertices)
+        + station_conflict_penalty(routes, vertices)
+        + vehicle_limit_penalty(routes, max_vehicles)
+    )
 
 
 def exact_energy_solution(
@@ -1451,8 +1506,11 @@ def exact_energy_solution(
     vertices: dict[int, Vertex],
     arcs: dict,
     reserve_pct: float = 0.0,
+    max_vehicles: int = 0,
 ) -> float:
-    report = validate_solution(routes, vertices, arcs, reserve_pct)
+    report = validate_solution(
+        routes, vertices, arcs, reserve_pct, max_vehicles=max_vehicles
+    )
     if not report["feasible"]:
         return float("inf")
     return report["energy_kwh"]
@@ -1974,6 +2032,7 @@ def run_eh_sats(
     instance_name: str | None = None,
     time_limit_s: float | None = None,
     collect_history: bool = False,
+    max_vehicles: int = 0,
 ) -> tuple[list[list[int]], float, float, dict]:
     vertices = {v.idx: v for v in vertices_list}
     station_idxs = [v.idx for v in vertices_list if v.is_station]
@@ -2004,7 +2063,9 @@ def run_eh_sats(
     )
     _DEADLINE = t_deadline
     client_routes = strip_client_routes(full_routes, vertices)
-    current_f = f_gen_solution(full_routes, vertices, arcs, battery_reserve_pct)
+    current_f = f_gen_solution(
+        full_routes, vertices, arcs, battery_reserve_pct, max_vehicles=max_vehicles
+    )
 
     best_routes = [list(r) for r in full_routes]
     best_f = current_f
@@ -2018,6 +2079,7 @@ def run_eh_sats(
         battery_reserve_pct,
         best_feasible,
         best_infeasible,
+        max_vehicles=max_vehicles,
     )
     tabu: dict[tuple[int, int], int] = {}
     tabu_iter = 0
@@ -2076,7 +2138,9 @@ def run_eh_sats(
             )
         except _DeadlineReached:
             break
-        trial_struct_f = f_gen_solution(trial_full, vertices, arcs, battery_reserve_pct)
+        trial_struct_f = f_gen_solution(
+            trial_full, vertices, arcs, battery_reserve_pct, max_vehicles=max_vehicles
+        )
         delta_e = trial_struct_f - current_f
         accept = delta_e <= 0 or rng.random() < math.exp(
             -delta_e / max(temperature, 1e-9)
@@ -2096,6 +2160,7 @@ def run_eh_sats(
                 battery_reserve_pct,
                 best_feasible,
                 best_infeasible,
+                max_vehicles=max_vehicles,
             )
             if current_f < best_f - 1e-6:
                 best_f = current_f
@@ -2124,9 +2189,11 @@ def run_eh_sats(
     _DEADLINE = None
 
     final_energy = exact_energy_solution(
-        best_routes, vertices, arcs, battery_reserve_pct
+        best_routes, vertices, arcs, battery_reserve_pct, max_vehicles=max_vehicles
     )
-    validation = validate_solution(best_routes, vertices, arcs, battery_reserve_pct)
+    validation = validate_solution(
+        best_routes, vertices, arcs, battery_reserve_pct, max_vehicles=max_vehicles
+    )
     validation["fgen"] = best_f
     validation["iterations"] = tabu_iter
     validation["history"] = history
@@ -2169,7 +2236,7 @@ def _run_eh_on_instance(
     collect_history: bool = False,
 ) -> dict:
     n_c, n_s = parse_instance_name(name)
-    vertices, arcs = load_instance(name)
+    vertices, arcs, max_vehicles = load_instance(name)
     t0 = time.time()
     routes, energy, fgen, validation = run_eh_sats(
         vertices,
@@ -2179,6 +2246,7 @@ def _run_eh_on_instance(
         instance_name=name,
         time_limit_s=time_limit_s,
         collect_history=collect_history,
+        max_vehicles=max_vehicles,
     )
     t_s = time.time() - t0
     vmap = {v.idx: v for v in vertices}
@@ -2197,6 +2265,7 @@ def _run_eh_on_instance(
         missing_customers=len(validation["missing_customers"]),
         battery_violation_kwh=round(validation["battery_violation_kwh"], 4),
         capacity_violation_kg=round(validation["capacity_violation_kg"], 4),
+        max_vehicles=max_vehicles,
         iterations=validation.get("iterations", 0),
         history=validation.get("history", []),
     )
@@ -2562,10 +2631,14 @@ def run_energy_vs_distance(
     total = len(LARGE_INSTANCES)
     for idx, name in enumerate(LARGE_INSTANCES, start=1):
         print(f"  {name} ({idx}/{total})...", end=" ", flush=True)
-        vertices, arcs = load_instance(name)
+        vertices, arcs, max_vehicles = load_instance(name)
         t0 = time.time()
         _, energy_min, _, _ = run_eh_sats(
-            vertices, arcs, seed=seed, time_limit_s=time_limit_s
+            vertices,
+            arcs,
+            seed=seed,
+            time_limit_s=time_limit_s,
+            max_vehicles=max_vehicles,
         )
         _, energy_from_dist = solve_distance_minimizing(vertices, arcs, seed=seed + 1)
         t_s = time.time() - t0
@@ -2915,7 +2988,7 @@ def save_grouped_small_maps(
         for i, (ax, row) in enumerate(zip(_flat_axes(axes), chunk)):
             inst = row["instance"]
             eh_routes = row.get("eh_routes") or row.get("eh_paths")
-            vertices, _ = load_instance(inst)
+            vertices, _, _ = load_instance(inst)
             _draw_small_map_on_ax(
                 ax,
                 vertices,
@@ -2976,7 +3049,7 @@ def save_grouped_large_maps(
         fig, axes = plt.subplots(nrows, ncols, figsize=(4.8 * ncols, 4.2 * nrows))
         for i, (ax, row) in enumerate(zip(_flat_axes(axes), chunk)):
             inst = row["instance"]
-            vertices, _ = load_instance(inst)
+            vertices, _, _ = load_instance(inst)
             _draw_large_3runs_on_ax(
                 ax,
                 vertices,

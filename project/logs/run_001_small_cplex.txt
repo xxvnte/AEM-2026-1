@@ -1,176 +1,253 @@
 EVRP — batch CPLEX (AMPL)
+Modelo: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\evrp.mod
 Instancias: 15
-CPLEX: sin límite de tiempo, mipgap=0.0001
+CPLEX: timelimit=300s, mipgap=0.01 por defecto; C23R2: 900s, mipgap=0.05
 
 ============================================================
 Instancia: C10R2
-Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\instances\small_dat\C10R2.dat
-CPLEX 22.1.2:   mip:gap = 0.0001
-CPLEX 22.1.2: optimal solution; objective 180.1520069
-84 simplex iterations
-Estado: OPTIMO | Energía: 180.1520 kWh | Tiempo: 0.93 s
-Rutas CPLEX C10R2: [[0, 10, 5, 6, 4, 1, 3, 8, 7, 2, 9, 0]]
+Modelo: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\evrp.mod
+Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\dat\C10R2.dat
+CPLEX timelimit: 300s, mipgap: 0.01
+CPLEX 22.1.2:   lim:time = 300
+  mip:gap = 0.01
+  tech:threads = 0
+CPLEX 22.1.2: optimal solution within tolerance; objective 212.6506484
+143664 simplex iterations
+1736 branching nodes
+absmipgap=2.12147, relmipgap=0.00997631
+Estado: OPTIMO | Energia: 212.6506 kWh | Tiempo: 2.63 s
+Rutas CPLEX C10R2: [[0, 10, 6, 5, 0], [0, 4, 1, 11, 11, 3, 8, 7, 2, 9, 0]]
 
 ============================================================
 Instancia: C11R2
-Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\instances\small_dat\C11R2.dat
-CPLEX 22.1.2:   mip:gap = 0.0001
-CPLEX 22.1.2: optimal solution; objective 199.5103214
-5044 simplex iterations
-2189 branching nodes
-Estado: OPTIMO | Energía: 199.5103 kWh | Tiempo: 8.33 s
-Rutas CPLEX C11R2: [[0, 7, 9, 13, 3, 4, 11, 6, 1, 10, 5, 2, 8, 12, 0]]
+Modelo: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\evrp.mod
+Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\dat\C11R2.dat
+CPLEX timelimit: 300s, mipgap: 0.01
+CPLEX 22.1.2:   lim:time = 300
+  mip:gap = 0.01
+  tech:threads = 0
+CPLEX 22.1.2: optimal solution within tolerance; objective 230.8217539
+498258 simplex iterations
+7687 branching nodes
+absmipgap=2.29397, relmipgap=0.00993829
+Estado: OPTIMO | Energia: 230.8218 kWh | Tiempo: 7.85 s
+Rutas CPLEX C11R2: [[0, 1, 10, 5, 2, 8, 12, 0], [0, 7, 9, 13, 3, 4, 11, 6, 0]]
 
 ============================================================
 Instancia: C12R2
-Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\instances\small_dat\C12R2.dat
-CPLEX 22.1.2:   mip:gap = 0.0001
-CPLEX 22.1.2: optimal solution; objective 226.4243148
-185 simplex iterations
-Estado: OPTIMO | Energía: 226.4243 kWh | Tiempo: 1.48 s
-Rutas CPLEX C12R2: [[0, 10, 7, 4, 1, 3, 5, 12, 6, 9, 8, 11, 2, 0]]
+Modelo: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\evrp.mod
+Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\dat\C12R2.dat
+CPLEX timelimit: 300s, mipgap: 0.01
+CPLEX 22.1.2:   lim:time = 300
+  mip:gap = 0.01
+  tech:threads = 0
+CPLEX 22.1.2: optimal solution within tolerance; objective 278.6760424
+1368479 simplex iterations
+18782 branching nodes
+absmipgap=2.78394, relmipgap=0.00998989
+Estado: OPTIMO | Energia: 278.6760 kWh | Tiempo: 30.95 s
+Rutas CPLEX C12R2: [[0, 13, 3, 9, 0], [0, 7, 4, 1, 10, 5, 0], [0, 12, 6, 8, 11, 2, 0]]
 
 ============================================================
 Instancia: C13R2
-Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\instances\small_dat\C13R2.dat
-CPLEX 22.1.2:   mip:gap = 0.0001
-CPLEX 22.1.2: optimal solution; objective 263.9152171
-6058571 simplex iterations
-456300 branching nodes
-Estado: OPTIMO | Energía: 263.9152 kWh | Tiempo: 116.64 s
-Rutas CPLEX C13R2: [[0, 5, 13, 3, 1, 7, 9, 2, 11, 4, 14, 6, 10, 8, 12, 0]]
+Modelo: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\evrp.mod
+Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\dat\C13R2.dat
+CPLEX timelimit: 300s, mipgap: 0.01
+CPLEX 22.1.2:   lim:time = 300
+  mip:gap = 0.01
+  tech:threads = 0
+CPLEX 22.1.2: optimal solution within tolerance; objective 305.3845937
+4124911 simplex iterations
+26336 branching nodes
+absmipgap=3.04877, relmipgap=0.00998337
+Estado: OPTIMO | Energia: 305.3846 kWh | Tiempo: 54.7 s
+Rutas CPLEX C13R2: [[0, 5, 7, 13, 3, 14, 4, 14, 6, 10, 8, 12, 0], [0, 11, 2, 9, 1, 0]]
 
 ============================================================
 Instancia: C14R2
-Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\instances\small_dat\C14R2.dat
-CPLEX 22.1.2:   mip:gap = 0.0001
-CPLEX 22.1.2: optimal solution; objective 205.5458596
-23506 simplex iterations
-1643 branching nodes
-Estado: OPTIMO | Energía: 205.5459 kWh | Tiempo: 7.43 s
-Rutas CPLEX C14R2: [[0, 4, 11, 6, 3, 9, 14, 5, 12, 1, 13, 2, 8, 10, 7, 0]]
+Modelo: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\evrp.mod
+Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\dat\C14R2.dat
+CPLEX timelimit: 300s, mipgap: 0.01
+CPLEX 22.1.2:   lim:time = 300
+  mip:gap = 0.01
+  tech:threads = 0
+CPLEX 22.1.2: optimal solution within tolerance; objective 248.8591396
+10482118 simplex iterations
+96687 branching nodes
+absmipgap=2.48835, relmipgap=0.00999902
+Estado: OPTIMO | Energia: 248.8591 kWh | Tiempo: 180.7 s
+Rutas CPLEX C14R2: [[0, 4, 11, 16, 1, 13, 2, 8, 10, 0], [0, 6, 3, 9, 14, 5, 7, 12, 0]]
 
 ============================================================
 Instancia: C15R2
-Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\instances\small_dat\C15R2.dat
-CPLEX 22.1.2:   mip:gap = 0.0001
-CPLEX 22.1.2: optimal solution; objective 225.0467727
-36778 simplex iterations
-2937 branching nodes
-Estado: OPTIMO | Energía: 225.0468 kWh | Tiempo: 6.86 s
-Rutas CPLEX C15R2: [[0, 13, 10, 6, 15, 2, 5, 7, 16, 8, 3, 4, 1, 14, 9, 11, 12, 0]]
+Modelo: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\evrp.mod
+Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\dat\C15R2.dat
+CPLEX timelimit: 300s, mipgap: 0.01
+CPLEX 22.1.2:   lim:time = 300
+  mip:gap = 0.01
+  tech:threads = 0
+CPLEX 22.1.2: optimal solution within tolerance; objective 262.2750445
+5154698 simplex iterations
+44123 branching nodes
+absmipgap=2.62258, relmipgap=0.00999937
+Estado: OPTIMO | Energia: 262.2750 kWh | Tiempo: 90.26 s
+Rutas CPLEX C15R2: [[0, 10, 6, 15, 2, 5, 7, 16, 11, 12, 0], [0, 13, 8, 9, 3, 4, 1, 14, 0]]
 
 ============================================================
 Instancia: C16R2
-Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\instances\small_dat\C16R2.dat
-CPLEX 22.1.2:   mip:gap = 0.0001
-CPLEX 22.1.2: optimal solution; objective 271.0258814
-6025 simplex iterations
-188 branching nodes
-Estado: OPTIMO | Energía: 271.0259 kWh | Tiempo: 4.2 s
-Rutas CPLEX C16R2: [[0, 3, 8, 5, 1, 6, 13, 15, 14, 7, 10, 4, 11, 12, 18, 16, 9, 2, 0]]
+Modelo: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\evrp.mod
+Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\dat\C16R2.dat
+CPLEX timelimit: 300s, mipgap: 0.01
+CPLEX 22.1.2:   lim:time = 300
+  mip:gap = 0.01
+  tech:threads = 0
+CPLEX 22.1.2: optimal solution within tolerance; objective 322.9394837
+11981558 simplex iterations
+77201 branching nodes
+absmipgap=3.22905, relmipgap=0.00999892
+Estado: OPTIMO | Energia: 322.9395 kWh | Tiempo: 230.39 s
+Rutas CPLEX C16R2: [[0, 5, 1, 6, 13, 0], [0, 2, 16, 9, 11, 12, 18, 4, 10, 15, 14, 17, 7, 3, 8, 0]]
 
 ============================================================
 Instancia: C17R2
-Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\instances\small_dat\C17R2.dat
-CPLEX 22.1.2:   mip:gap = 0.0001
-CPLEX 22.1.2: optimal solution; objective 173.9470022
-113 simplex iterations
-Estado: OPTIMO | Energía: 173.9470 kWh | Tiempo: 1.8 s
-Rutas CPLEX C17R2: [[0, 17, 10, 5, 7, 16, 8, 14, 2, 3, 1, 4, 13, 9, 11, 6, 12, 15, 0]]
+Modelo: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\evrp.mod
+Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\dat\C17R2.dat
+CPLEX timelimit: 300s, mipgap: 0.01
+CPLEX 22.1.2:   lim:time = 300
+  mip:gap = 0.01
+  tech:threads = 0
+CPLEX 22.1.2: optimal solution within tolerance; objective 219.7389628
+7698781 simplex iterations
+81721 branching nodes
+absmipgap=2.19724, relmipgap=0.00999933
+Estado: OPTIMO | Energia: 219.7390 kWh | Tiempo: 183.6 s
+Rutas CPLEX C17R2: [[0, 11, 6, 16, 7, 14, 8, 5, 17, 10, 0], [0, 2, 3, 1, 4, 13, 9, 0], [0, 12, 15, 0]]
 
 ============================================================
 Instancia: C18R2
-Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\instances\small_dat\C18R2.dat
-CPLEX 22.1.2:   mip:gap = 0.0001
-CPLEX 22.1.2: optimal solution within tolerance; objective 302.7582098
-32393 simplex iterations
-1581 branching nodes
-absmipgap=0.0291825, relmipgap=9.63889e-05
-Estado: OPTIMO | Energía: 302.7582 kWh | Tiempo: 10.95 s
-Rutas CPLEX C18R2: [[0, 3, 6, 18, 10, 12, 13, 1, 8, 2, 4, 15, 16, 19, 11, 14, 9, 17, 5, 7, 0]]
+Modelo: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\evrp.mod
+Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\dat\C18R2.dat
+CPLEX timelimit: 300s, mipgap: 0.01
+CPLEX 22.1.2:   lim:time = 300
+  mip:gap = 0.01
+  tech:threads = 0
+CPLEX 22.1.2: feasible solution; objective 371.329289
+5743617 simplex iterations
+62641 branching nodes
+absmipgap=45.0983, relmipgap=0.121451
+Estado: FACTIBLE (lim. tiempo) | Energia: 371.3293 kWh | Tiempo: 322.13 s
+Rutas CPLEX C18R2: [[0, 7, 11, 14, 15, 19, 16, 9, 17, 5, 0], [0, 13, 1, 8, 2, 4, 3, 0], [0, 12, 10, 6, 18, 0]]
 
 ============================================================
 Instancia: C19R2
-Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\instances\small_dat\C19R2.dat
-CPLEX 22.1.2:   mip:gap = 0.0001
-CPLEX 22.1.2: optimal solution; objective 219.9300691
-3459 simplex iterations
-81 branching nodes
-Estado: OPTIMO | Energía: 219.9301 kWh | Tiempo: 6.9 s
-Rutas CPLEX C19R2: [[0, 18, 5, 17, 19, 6, 15, 1, 13, 20, 4, 12, 2, 9, 16, 11, 10, 7, 14, 3, 8, 0]]
+Modelo: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\evrp.mod
+Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\dat\C19R2.dat
+CPLEX timelimit: 300s, mipgap: 0.01
+CPLEX 22.1.2:   lim:time = 300
+  mip:gap = 0.01
+  tech:threads = 0
+CPLEX 22.1.2: feasible solution; objective 266.0754402
+7356332 simplex iterations
+46969 branching nodes
+absmipgap=14.4571, relmipgap=0.0543346
+Estado: FACTIBLE (lim. tiempo) | Energia: 266.0754 kWh | Tiempo: 307.1 s
+Rutas CPLEX C19R2: [[0, 5, 17, 15, 19, 6, 18, 0], [0, 3, 8, 0], [0, 1, 13, 20, 20, 4, 12, 2, 9, 16, 11, 10, 7, 14, 0]]
 
 ============================================================
 Instancia: C20R2
-Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\instances\small_dat\C20R2.dat
-CPLEX 22.1.2:   mip:gap = 0.0001
-CPLEX 22.1.2: optimal solution within tolerance; objective 275.3173358
-33660 simplex iterations
-851 branching nodes
-absmipgap=0.0177847, relmipgap=6.45971e-05
-Estado: OPTIMO | Energía: 275.3173 kWh | Tiempo: 10.88 s
-Rutas CPLEX C20R2: [[0, 5, 7, 9, 6, 14, 12, 16, 13, 15, 20, 2, 18, 3, 10, 17, 8, 19, 21, 1, 4, 11, 0]]
+Modelo: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\evrp.mod
+Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\dat\C20R2.dat
+CPLEX timelimit: 300s, mipgap: 0.01
+CPLEX 22.1.2:   lim:time = 300
+  mip:gap = 0.01
+  tech:threads = 0
+CPLEX 22.1.2: feasible solution; objective 329.330211
+6950354 simplex iterations
+50006 branching nodes
+absmipgap=19.7923, relmipgap=0.0600988
+Estado: FACTIBLE (lim. tiempo) | Energia: 329.3302 kWh | Tiempo: 306.44 s
+Rutas CPLEX C20R2: [[0, 7, 16, 13, 12, 9, 6, 14, 19, 21, 1, 4, 11, 20, 15, 0], [0, 5, 17, 8, 18, 2, 3, 10, 22, 22, 0]]
 
 ============================================================
 Instancia: C21R2
-Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\instances\small_dat\C21R2.dat
-CPLEX 22.1.2:   mip:gap = 0.0001
-CPLEX 22.1.2: optimal solution within tolerance; objective 271.3234808
-72840 simplex iterations
-3074 branching nodes
-absmipgap=0.0172666, relmipgap=6.36383e-05
-Estado: OPTIMO | Energía: 271.3235 kWh | Tiempo: 11.52 s
-Rutas CPLEX C21R2: [[0, 10, 6, 17, 14, 18, 9, 21, 2, 7, 5, 16, 15, 1, 13, 11, 8, 12, 3, 20, 19, 4, 0]]
+Modelo: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\evrp.mod
+Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\dat\C21R2.dat
+CPLEX timelimit: 300s, mipgap: 0.01
+CPLEX 22.1.2:   lim:time = 300
+  mip:gap = 0.01
+  tech:threads = 0
+CPLEX 22.1.2: feasible solution; objective 338.6486357
+5110366 simplex iterations
+47604 branching nodes
+absmipgap=38.9948, relmipgap=0.115148
+Estado: FACTIBLE (lim. tiempo) | Energia: 338.6486 kWh | Tiempo: 311.74 s
+Rutas CPLEX C21R2: [[0, 10, 20, 3, 12, 22, 6, 17, 14, 18, 9, 21, 0], [0, 8, 11, 13, 1, 23, 23, 7, 2, 5, 16, 15, 19, 4, 0]]
 
 ============================================================
 Instancia: C22R2
-Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\instances\small_dat\C22R2.dat
-CPLEX 22.1.2:   mip:gap = 0.0001
-CPLEX 22.1.2: optimal solution; objective 261.9976575
-4338 simplex iterations
-126 branching nodes
-Estado: OPTIMO | Energía: 261.9977 kWh | Tiempo: 6.14 s
-Rutas CPLEX C22R2: [[0, 20, 8, 4, 11, 18, 21, 5, 13, 9, 1, 7, 10, 22, 17, 12, 3, 2, 15, 16, 6, 19, 14, 0]]
+Modelo: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\evrp.mod
+Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\dat\C22R2.dat
+CPLEX timelimit: 300s, mipgap: 0.01
+CPLEX 22.1.2:   lim:time = 300
+  mip:gap = 0.01
+  tech:threads = 0
+CPLEX 22.1.2: feasible solution; objective 319.7096312
+6158860 simplex iterations
+47475 branching nodes
+absmipgap=26.6477, relmipgap=0.0833495
+Estado: FACTIBLE (lim. tiempo) | Energia: 319.7096 kWh | Tiempo: 312.64 s
+Rutas CPLEX C22R2: [[0, 6, 19, 14, 0], [0, 20, 8, 4, 11, 18, 0], [0, 1, 9, 7, 10, 13, 21, 5, 23, 22, 17, 12, 3, 2, 15, 16, 0]]
 
 ============================================================
 Instancia: C23R2
-Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\instances\small_dat\C23R2.dat
-CPLEX 22.1.2:   mip:gap = 0.0001
-CPLEX 22.1.2: optimal solution; objective 254.7285429
-367 simplex iterations
-Estado: OPTIMO | Energía: 254.7285 kWh | Tiempo: 6.42 s
-Rutas CPLEX C23R2: [[0, 8, 18, 22, 16, 17, 11, 4, 2, 19, 21, 1, 15, 5, 10, 9, 7, 13, 20, 6, 12, 14, 3, 23, 0]]
+Modelo: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\evrp.mod
+Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\dat\C23R2.dat
+CPLEX timelimit: 900s, mipgap: 0.05
+CPLEX 22.1.2:   lim:time = 900
+  mip:gap = 0.050000000000000003
+  tech:threads = 0
+CPLEX 22.1.2: feasible solution; objective 343.1200782
+7702341 simplex iterations
+101936 branching nodes
+absmipgap=60.3616, relmipgap=0.17592
+Estado: FACTIBLE (lim. tiempo) | Energia: 343.1201 kWh | Tiempo: 960.28 s
+Rutas CPLEX C23R2: [[0, 5, 10, 9, 7, 13, 25, 20, 6, 12, 14, 3, 0], [0, 22, 16, 17, 23, 0], [0, 8, 18, 15, 19, 11, 2, 4, 21, 1, 0]]
 
 ============================================================
 Instancia: C24R2
-Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\instances\small_dat\C24R2.dat
-CPLEX 22.1.2:   mip:gap = 0.0001
-CPLEX 22.1.2: optimal solution; objective 262.608488
-21381 simplex iterations
-571 branching nodes
-Estado: OPTIMO | Energía: 262.6085 kWh | Tiempo: 15.21 s
-Rutas CPLEX C24R2: [[0, 19, 18, 7, 2, 21, 14, 4, 13, 15, 8, 6, 17, 10, 3, 20, 12, 24, 23, 5, 1, 9, 11, 16, 22, 0]]
+Modelo: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\evrp.mod
+Datos: C:\Users\usuario\Desktop\AEM-2026-1\project\solver\dat\C24R2.dat
+CPLEX timelimit: 300s, mipgap: 0.01
+CPLEX 22.1.2:   lim:time = 300
+  mip:gap = 0.01
+  tech:threads = 0
+CPLEX 22.1.2: feasible solution; objective 322.7756273
+6763728 simplex iterations
+45469 branching nodes
+absmipgap=39.1544, relmipgap=0.121305
+Estado: FACTIBLE (lim. tiempo) | Energia: 322.7756 kWh | Tiempo: 313.32 s
+Rutas CPLEX C24R2: [[0, 22, 2, 8, 25, 25, 6, 17, 10, 3, 20, 1, 9, 0], [0, 19, 18, 7, 21, 14, 5, 26, 26, 4, 13, 15, 12, 24, 23, 16, 11, 0]]
 
 ========================================================================
 RESUMEN CPLEX (instancias pequeñas)
 ========================================================================
-Instancia         Energía   Tiempo Estado                
+Instancia         Energia   Tiempo Estado                
 ------------------------------------------------------------------------
-C10R2            180.1520     0.9s OPTIMO                
-C11R2            199.5103     8.3s OPTIMO                
-C12R2            226.4243     1.5s OPTIMO                
-C13R2            263.9152   116.6s OPTIMO                
-C14R2            205.5459     7.4s OPTIMO                
-C15R2            225.0468     6.9s OPTIMO                
-C16R2            271.0259     4.2s OPTIMO                
-C17R2            173.9470     1.8s OPTIMO                
-C18R2            302.7582    10.9s OPTIMO                
-C19R2            219.9301     6.9s OPTIMO                
-C20R2            275.3173    10.9s OPTIMO                
-C21R2            271.3235    11.5s OPTIMO                
-C22R2            261.9977     6.1s OPTIMO                
-C23R2            254.7285     6.4s OPTIMO                
-C24R2            262.6085    15.2s OPTIMO                
+C10R2            212.6506     2.6s OPTIMO                
+C11R2            230.8218     7.8s OPTIMO                
+C12R2            278.6760    30.9s OPTIMO                
+C13R2            305.3846    54.7s OPTIMO                
+C14R2            248.8591   180.7s OPTIMO                
+C15R2            262.2750    90.3s OPTIMO                
+C16R2            322.9395   230.4s OPTIMO                
+C17R2            219.7390   183.6s OPTIMO                
+C18R2            371.3293   322.1s FACTIBLE (lim. tiempo)
+C19R2            266.0754   307.1s FACTIBLE (lim. tiempo)
+C20R2            329.3302   306.4s FACTIBLE (lim. tiempo)
+C21R2            338.6486   311.7s FACTIBLE (lim. tiempo)
+C22R2            319.7096   312.6s FACTIBLE (lim. tiempo)
+C23R2            343.1201   960.3s FACTIBLE (lim. tiempo)
+C24R2            322.7756   313.3s FACTIBLE (lim. tiempo)
 ------------------------------------------------------------------------
 Resueltas: 15/15
 

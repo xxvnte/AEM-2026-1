@@ -6,22 +6,22 @@
       "threshold": "0%",
       "usable_kwh": 110.0,
       "reserve_pct": 0.0,
-      "energy": 2750.67,
+      "energy": 1131.14,
       "visits": 38.23
     },
     {
       "threshold": "10%",
       "usable_kwh": 99.0,
       "reserve_pct": 10.0,
-      "energy": 3230.0,
-      "visits": 37.8
+      "energy": 1160.18,
+      "visits": 38.02
     },
     {
       "threshold": "20%",
       "usable_kwh": 88.0,
       "reserve_pct": 20.0,
-      "energy": 3286.4,
-      "visits": 39.2
+      "energy": 1197.7,
+      "visits": 39.25
     }
   ]
 }

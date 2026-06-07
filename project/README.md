@@ -31,7 +31,7 @@ Sobre esta base híbrida, el EH-SA/TS incorpora tres capas de mejora que atacan 
 
 ## Procedimiento de Inicialización
 
-La solución inicial se construye en dos fases. En la primera, se aplica un procedimiento _greedy_ aleatorio que asigna **todos** los clientes a rutas (solo capacidad; sin batería). En la segunda, la Programación Dinámica de la Capa 3 inserta el plan de recarga sobre cada ruta. El objetivo es entregar al algoritmo principal una solución con **todos los clientes presentes en la secuencia** y un plan de recarga coherente; la factibilidad estricta (batería en cada arco, capacidad, visita única) se verifica al reportar resultados.
+La solución inicial se construye en dos fases. En la primera, se aplica un procedimiento _greedy_ aleatorio que asigna **todos** los clientes a rutas (solo capacidad; sin batería). En la segunda, la Programación Dinámica de la Capa 3 inserta el plan de recarga sobre cada ruta. El objetivo es entregar al algoritmo principal una solución con **todos los clientes presentes en la secuencia** y un plan de recarga coherente; la factibilidad estricta (batería en cada arco, capacidad, visita única, límite de flota y estaciones no compartidas entre rutas) se verifica al reportar resultados.
 
 ```
 Fase 1: greedy aleatorio → todas las rutas de clientes (capacidad sí, batería no)
@@ -178,18 +178,20 @@ La DP se invoca sobre cada ruta modificada **antes** de que SA decida aceptar o 
 
 El EH-SA/TS opera con tres niveles de evaluación con distintos propósitos y costes computacionales:
 
-| Función                                                                                     | Cuándo se usa                                                     | Propósito                                                                                |
-| ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| $f'_{approx}(S)$                                                                            | Evaluación de cada vecino en TS                                   | Evaluación rápida, evita recálculo en cascada                                            |
-| $f_{gen}(S) = f_e + \gamma_{cap} L_{cap} + \gamma_{batt} L_{batt} + \gamma_{miss} L_{miss}$ | Criterio de aceptación SA sobre el movimiento elegido **post-DP** | Guía la búsqueda y penaliza violaciones de capacidad/batería y **clientes no visitados** |
-| $f_e$ exacta (con penalizaciones)                                                           | Dentro de $f_{gen}$ durante el loop híbrido                       | Coste energético simulado tras reoptimizar el plan de recarga                            |
-| **Validación estricta**                                                                     | Al finalizar (`-small`, `-large`, etc.)                           | Comprueba factibilidad real antes de reportar energía                                    |
+| Función                                                                                                                                     | Cuándo se usa                                                     | Propósito                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| $f'_{approx}(S)$                                                                                                                            | Evaluación de cada vecino en TS                                   | Evaluación rápida, evita recálculo en cascada                                                                                                             |
+| $f_{gen}(S) = f_e + \gamma_{cap} L_{cap} + \gamma_{batt} L_{batt} + \gamma_{miss} L_{miss} + \gamma_{stat} L_{stat} + \gamma_{veh} L_{veh}$ | Criterio de aceptación SA sobre el movimiento elegido **post-DP** | Guía la búsqueda y penaliza violaciones de capacidad/batería, **clientes no visitados**, **estaciones compartidas entre rutas** y **exceso de vehículos** |
+| $f_e$ exacta (con penalizaciones)                                                                                                           | Dentro de $f_{gen}$ durante el loop híbrido                       | Coste energético simulado tras reoptimizar el plan de recarga                                                                                             |
+| **Validación estricta**                                                                                                                     | Al finalizar (`-small`, `-large`, etc.)                           | Comprueba factibilidad real antes de reportar energía                                                                                                     |
 
-**Búsqueda vs reporte.** Durante SA/TS, $f_{gen}$ puede explorar soluciones con penalizaciones ($L_{cap}$, $L_{batt}$, $L_{miss}$) para no bloquear la exploración, $L_{miss}$ cuenta clientes faltantes y visitas duplicadas con un peso alto ($\gamma_{miss}$) para que la búsqueda no prefiera rutas incompletas. La **energía EH-SA/TS reportada** en logs solo se muestra si la solución cumple simultáneamente:
+**Búsqueda vs reporte.** Durante SA/TS, $f_{gen}$ puede explorar soluciones con penalizaciones ($L_{cap}$, $L_{batt}$, $L_{miss}$, $L_{stat}$, $L_{veh}$) para no bloquear la exploración. $L_{miss}$ cuenta clientes faltantes y visitas duplicadas con un peso alto ($\gamma_{miss}$) para que la búsqueda no prefiera rutas incompletas. $L_{stat}$ penaliza estaciones de recarga que aparecen en más de una ruta (restricción (3) del modelo formal: máximo un sucesor por estación en el grafo expandido; en la implementación, equivalencia operativa = ninguna estación compartida entre vehículos). $L_{veh}$ penaliza el uso de más rutas que el límite $l$ leído del archivo de instancia (`MAX_VEHICLES`; restricciones (5)–(6)). La **energía EH-SA/TS reportada** en logs solo se muestra si la solución cumple simultáneamente:
 
 - todos los clientes visitados **exactamente una vez**;
 - capacidad del vehículo respetada en cada ruta;
-- batería $\geq 0$ en **cada arco** (simulación estricta, sin “resetear” violaciones).
+- batería $\geq 0$ en **cada arco** (simulación estricta, sin “resetear” violaciones);
+- ninguna estación de recarga visitada por **más de un vehículo** ($L_{stat} = 0$);
+- número de rutas activas $\leq l$ cuando la instancia define `MAX_VEHICLES` ($L_{veh} = 0$).
 
 Si alguna condición falla, la instancia se marca como **`INFACTIBLE`**. La comparación con el óptimo MIP (CPLEX) se hace aparte leyendo `logs/run_NNN_small_cplex.txt`.
 
@@ -199,9 +201,9 @@ La función sustituta se construye como:
 
 $$f'*{approx}(S) = f'e(S) + \gamma{cap} \cdot L*{cap}(S) + \gamma_{batt} \cdot L'_{batt}(S)$$
 
-$$f_{gen}(S) = f_e(S) + \gamma_{cap} L_{cap}(S) + \gamma_{batt} L_{batt}(S) + \gamma_{miss} L_{miss}(S)$$
+$$f_{gen}(S) = f_e(S) + \gamma_{cap} L_{cap}(S) + \gamma_{batt} L_{batt}(S) + \gamma_{miss} L_{miss}(S) + \gamma_{stat} L_{stat}(S) + \gamma_{veh} L_{veh}(S)$$
 
-donde $L_{cap}(S)$ no requiere versión sustituta porque la capacidad total del vehículo no depende del orden de recargas y se calcula directamente, y $L_{miss}(S)$ penaliza clientes no incluidos en las rutas (la función sustituta $f'_{approx}$ no recalcula $L_{miss}$, los movimientos Relocate/Exchange conservan el conjunto de clientes).
+donde $L_{cap}(S)$ no requiere versión sustituta porque la capacidad total del vehículo no depende del orden de recargas y se calcula directamente; $L_{miss}(S)$ penaliza clientes no incluidos en las rutas (la función sustituta $f'_{approx}$ no recalcula $L_{miss}$, los movimientos Relocate/Exchange conservan el conjunto de clientes); $L_{stat}(S)$ cuenta, por cada estación, cuántas rutas distintas la visitan (contribución $k-1$ si aparece en $k$ rutas); y $L_{veh}(S) = \max(0,\ |S| - l)$ cuando $l > 0$ (`MAX_VEHICLES` en el `.txt` de la instancia).
 
 ---
 
@@ -308,22 +310,25 @@ Salida:  Mejor solución encontrada S*
 
 Los valores de los parámetros se calibran con base en la literatura y en el comportamiento observado sobre el banco de instancias del paper (Zhang et al., 2018).
 
-| Parámetro                    | Descripción                                                        | Valor  |
-| ---------------------------- | ------------------------------------------------------------------ | ------ |
-| $T_0$                        | Temperatura inicial SA                                             | 20     |
-| $\alpha$                     | Tasa de enfriamiento geométrico                                    | 0.97   |
-| $T_{min}$                    | Temperatura mínima de parada                                       | 0.01   |
-| $K_{tabú}$                   | Tenencia tabú (iteraciones de prohibición)                         | 12     |
-| `MAX_LABELS_DP`              | Máximo de etiquetas Pareto por paso en la DP                       | 20     |
-| `MAX_NEIGHBORHOOD_MOVES`     | Cap duro del vecindario por iteración SA/TS                        | 2000   |
-| `MAX_DIJKSTRA_POPS`          | Cota dura de expansiones por búsqueda Dijkstra                     | 200000 |
-| `--time-limit-run` (default) | Segundos máximos por corrida EH en `-large` y extras               | 300    |
-| `INIT_TIME_MAX_S`            | Tope absoluto de tiempo para la fase inicial (greedy + DP)         | 90     |
-| `INIT_TIME_FRACTION`         | Fracción del límite por corrida reservada solo a la inicialización | 0.30   |
-| $\gamma_{cap}$               | Factor de penalización por violación de capacidad                  | 200    |
-| $\gamma_{batt}$              | Factor de penalización por violación de batería                    | 100    |
-| $\gamma_{miss}$              | Penalización por cliente no visitado (o duplicado)                 | 5000   |
-| umbral                       | Iteraciones consecutivas sin mejora global para parada             | 100    |
+| Parámetro                    | Descripción                                                        | Valor                         |
+| ---------------------------- | ------------------------------------------------------------------ | ----------------------------- |
+| $T_0$                        | Temperatura inicial SA                                             | 20                            |
+| $\alpha$                     | Tasa de enfriamiento geométrico                                    | 0.97                          |
+| $T_{min}$                    | Temperatura mínima de parada                                       | 0.01                          |
+| $K_{tabú}$                   | Tenencia tabú (iteraciones de prohibición)                         | 12                            |
+| `MAX_LABELS_DP`              | Máximo de etiquetas Pareto por paso en la DP                       | 20                            |
+| `MAX_NEIGHBORHOOD_MOVES`     | Cap duro del vecindario por iteración SA/TS                        | 2000                          |
+| `MAX_DIJKSTRA_POPS`          | Cota dura de expansiones por búsqueda Dijkstra                     | 200000                        |
+| `--time-limit-run` (default) | Segundos máximos por corrida EH en `-large` y extras               | 300                           |
+| `INIT_TIME_MAX_S`            | Tope absoluto de tiempo para la fase inicial (greedy + DP)         | 90                            |
+| `INIT_TIME_FRACTION`         | Fracción del límite por corrida reservada solo a la inicialización | 0.30                          |
+| $\gamma_{cap}$               | Factor de penalización por violación de capacidad                  | 200                           |
+| $\gamma_{batt}$              | Factor de penalización por violación de batería                    | 100                           |
+| $\gamma_{miss}$              | Penalización por cliente no visitado (o duplicado)                 | 5000                          |
+| $\gamma_{stat}$              | Penalización por estación compartida entre rutas (restr. (3))      | 300                           |
+| $\gamma_{veh}$               | Penalización por exceder `MAX_VEHICLES` (restr. (5)–(6))           | 400                           |
+| `MAX_VEHICLES` (instancia)   | Límite $l$ de vehículos/rutas activas; 0 = sin límite en código    | p. ej. 3 (small), 6–7 (large) |
+| umbral                       | Iteraciones consecutivas sin mejora global para parada             | 100                           |
 
 ### Justificación de $T_0 = 20$ y $\alpha = 0.97$
 
@@ -466,7 +471,7 @@ Si se omite el número, `stats.py` usa el último run disponible.
 
 | Archivo                               | Contenido                                                                |
 | ------------------------------------- | ------------------------------------------------------------------------ |
-| `run_001_small_bars.png`              | Energía EH-SA/TS vs CPLEX por instancia                               |
+| `run_001_small_bars.png`              | Energía EH-SA/TS vs CPLEX por instancia                                  |
 | `run_001_small_gaps.png`              | Gap (%) EH vs CPLEX por instancia                                        |
 | `run_001_small_time_bars.png`         | Tiempo de ejecución por instancia                                        |
 | `run_001_small_iter_bars.png`         | Iteraciones SA/TS por instancia                                          |
@@ -585,11 +590,11 @@ Valores positivos indican que EH-SA/TS consume más que el óptimo MIP.
 
 ```bash
 cd project
-python solve_cplex.py --build-small-dat   # genera instances/small_dat/*.dat (una vez)
 python solve_cplex.py                     # batch C10R2–C24R2 → logs/run_NNN_small_cplex.txt
+python solve_cplex.py --build-dat         # regenera solver/dat/*.dat desde instances/small/ (opcional)
 ```
 
-CPLEX usa `mipgap=0.0001` (0,01 %) sin límite de tiempo. Archivos: `model.mod`, `solve_cplex.py`, `instances/small_dat/<nombre>.dat`.
+CPLEX usa `solver/evrp.mod` y datos en `solver/dat/<nombre>.dat`. Por defecto `timelimit=300 s`, `mipgap=0.01`; **C23R2** usa `timelimit=900 s` y `mipgap=0.05`.
 
 Los gráficos y su interpretación están en [Gráficos (`stats.py`)](#gráficos-statspy) (sección Ejecución). Leyenda en mapas: depósito (cuadrado rojo), estaciones (triángulo verde), clientes (círculo azul); referencia CPLEX (morada continua); EH-SA/TS (naranja discontinua).
 
