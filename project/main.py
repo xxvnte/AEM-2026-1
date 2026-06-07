@@ -2792,7 +2792,7 @@ def _draw_small_map_on_ax(
             linestyle="-",
             linewidth=1.4,
             alpha=0.85,
-            label="OR-Tools",
+            label="CPLEX",
         )
     _draw_routes_on_ax(
         ax,
@@ -2806,7 +2806,7 @@ def _draw_small_map_on_ax(
     )
     title = instance
     if eh_energy is not None and ref_energy is not None:
-        title += f"\nOT {ref_energy:.0f} | EH {eh_energy:.0f} kWh"
+        title += f"\nCPLEX {ref_energy:.0f} | EH {eh_energy:.0f} kWh"
     elif eh_energy is not None:
         title += f"\nEH {eh_energy:.0f} kWh"
     ax.set_title(title, fontsize=9)
@@ -2891,7 +2891,7 @@ def save_grouped_small_maps(
     category: str = "small",
     group_size: int = MAP_GROUP_SIZE,
 ) -> list[Path]:
-    """Mapas pequeños: 5 instancias por PNG (EH vs OR-Tools en cada panel)."""
+    """Mapas pequeños: 5 instancias por PNG (EH vs CPLEX en cada panel)."""
     if not MATPLOTLIB_AVAILABLE:
         return []
     eligible = [r for r in rows if r.get("eh_routes") or r.get("eh_paths")]
@@ -2930,7 +2930,7 @@ def save_grouped_small_maps(
             ax.set_visible(False)
         names = [r["instance"] for r in chunk]
         fig.suptitle(
-            f"Mapas EH-SA/TS vs OR-Tools — {_group_range_label_from_names(names)}",
+            f"Mapas EH-SA/TS vs CPLEX — {_group_range_label_from_names(names)}",
             fontsize=12,
             fontweight="bold",
         )

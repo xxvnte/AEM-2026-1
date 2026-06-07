@@ -466,7 +466,7 @@ Si se omite el número, `stats.py` usa el último run disponible.
 
 | Archivo                               | Contenido                                                                |
 | ------------------------------------- | ------------------------------------------------------------------------ |
-| `run_001_small_bars.png`              | Energía EH-SA/TS vs OR-Tools por instancia                               |
+| `run_001_small_bars.png`              | Energía EH-SA/TS vs CPLEX por instancia                               |
 | `run_001_small_gaps.png`              | Gap (%) EH vs CPLEX por instancia                                        |
 | `run_001_small_time_bars.png`         | Tiempo de ejecución por instancia                                        |
 | `run_001_small_iter_bars.png`         | Iteraciones SA/TS por instancia                                          |
@@ -591,7 +591,7 @@ python solve_cplex.py                     # batch C10R2–C24R2 → logs/run_NNN
 
 CPLEX usa `mipgap=0.0001` (0,01 %) sin límite de tiempo. Archivos: `model.mod`, `solve_cplex.py`, `instances/small_dat/<nombre>.dat`.
 
-Los gráficos y su interpretación están en [Gráficos (`stats.py`)](#gráficos-statspy) (sección Ejecución). Leyenda en mapas: depósito (cuadrado rojo), estaciones (triángulo verde), clientes (círculo azul); referencia CPLEX/OR-Tools (morada continua); EH-SA/TS (naranja discontinua).
+Los gráficos y su interpretación están en [Gráficos (`stats.py`)](#gráficos-statspy) (sección Ejecución). Leyenda en mapas: depósito (cuadrado rojo), estaciones (triángulo verde), clientes (círculo azul); referencia CPLEX (morada continua); EH-SA/TS (naranja discontinua).
 
 ### Instancias grandes (`-large`)
 

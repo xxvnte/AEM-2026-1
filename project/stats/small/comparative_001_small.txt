@@ -1,5 +1,5 @@
 ========================================================================================
-COMPARATIVA EH-SA/TS vs CPLEX — run 001
+COMPARATIVA EH-SA/TS vs CPLEX - run 001
 ========================================================================================
 Log EH:    logs/run_001_small.txt
 Log CPLEX: logs/run_001_small_cplex.txt

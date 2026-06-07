@@ -689,11 +689,11 @@ def generate_small_charts(
                 "bars",
                 labels,
                 {
-                    "OR-Tools (kWh)": [r["mip_energy"] for r in gap_rows],
+                    "CPLEX (kWh)": [r["mip_energy"] for r in gap_rows],
                     "EH-SA/TS (kWh)": [r["eh_energy"] for r in gap_rows],
                 },
                 category="small",
-                title="Pequeñas: energía OR-Tools vs EH-SA/TS",
+                title="Pequeñas: energía CPLEX vs EH-SA/TS",
                 ylabel="Energía (kWh)",
             )
         )
@@ -704,7 +704,7 @@ def generate_small_charts(
                 labels,
                 {"Gap % (EH)": [r["gap_pct"] for r in gap_rows]},
                 category="small",
-                title="Pequeñas: Absolute Gap EH-SA/TS vs OR-Tools",
+                title="Pequeñas: Absolute Gap EH-SA/TS vs CPLEX",
                 ylabel="Gap (%)",
             )
         )
