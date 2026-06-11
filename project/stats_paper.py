@@ -416,6 +416,112 @@ def _large_time_bars_group(rows: list, g: int, total_groups: int) -> Path:
     return out
 
 
+def _large_energy_bars_all() -> Path:
+    """Energía ALNS vs AC — todas las instancias en un solo gráfico (Tabla 3)."""
+    import numpy as np
+
+    labels = [r[0] for r in LARGE_DATA]
+    alns_e = [r[1] for r in LARGE_DATA]
+    ac_e = [r[4] for r in LARGE_DATA]
+
+    x = np.arange(len(labels))
+    w = 0.35
+    fig, ax = plt.subplots(figsize=(max(13, len(labels) * 0.45), 6))
+    ax.bar(x - w / 2, alns_e, w, label="ALNS", color=_COLORS["alns"])
+    ax.bar(x + w / 2, ac_e, w, label="AC", color=_COLORS["ac"])
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=90, ha="center", fontsize=7)
+    ax.set_ylabel("Energía (kWh)")
+    ax.set_title(
+        "Instancias grandes - Energía ALNS vs AC, todas las instancias (Tabla 3)"
+    )
+    ax.legend()
+    ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
+    ax.grid(axis="y", alpha=0.3)
+    fig.tight_layout()
+    out = LARGE_DIR / "paper_large_energy_bars.png"
+    _savefig(fig, out)
+    return out
+
+
+def _large_rpd_bars_all() -> Path:
+    """RPD (%) ALNS vs AC — todas las instancias en un solo gráfico (Tabla 3)."""
+    import numpy as np
+
+    labels = [r[0] for r in LARGE_DATA]
+    alns_rpd = [r[3] for r in LARGE_DATA]
+    ac_rpd = [r[6] for r in LARGE_DATA]
+
+    x = np.arange(len(labels))
+    w = 0.35
+    fig, ax = plt.subplots(figsize=(max(13, len(labels) * 0.45), 6))
+    ax.bar(
+        x - w / 2,
+        alns_rpd,
+        w,
+        label=f"ALNS  (avg {LARGE_AVG['alns_rpd']:.2f}%)",
+        color=_COLORS["alns"],
+    )
+    ax.bar(
+        x + w / 2,
+        ac_rpd,
+        w,
+        label=f"AC    (avg {LARGE_AVG['ac_rpd']:.2f}%)",
+        color=_COLORS["ac"],
+    )
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=90, ha="center", fontsize=7)
+    ax.set_ylabel("RPD (%)")
+    ax.set_title("Instancias grandes - RPD ALNS vs AC, todas las instancias (Tabla 3)")
+    ax.legend()
+    ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
+    ax.grid(axis="y", alpha=0.3)
+    fig.tight_layout()
+    out = LARGE_DIR / "paper_large_rpd_bars.png"
+    _savefig(fig, out)
+    return out
+
+
+def _large_time_bars_all() -> Path:
+    """Tiempo CPU ALNS vs AC — todas las instancias en un solo gráfico (Tabla 3)."""
+    import numpy as np
+
+    labels = [r[0] for r in LARGE_DATA]
+    alns_t = [r[2] for r in LARGE_DATA]
+    ac_t = [r[5] for r in LARGE_DATA]
+
+    x = np.arange(len(labels))
+    w = 0.35
+    fig, ax = plt.subplots(figsize=(max(13, len(labels) * 0.45), 6))
+    ax.bar(
+        x - w / 2,
+        alns_t,
+        w,
+        label=f"ALNS  (avg {LARGE_AVG['alns_t']:.1f}s)",
+        color=_COLORS["alns"],
+    )
+    ax.bar(
+        x + w / 2,
+        ac_t,
+        w,
+        label=f"AC    (avg {LARGE_AVG['ac_t']:.1f}s)",
+        color=_COLORS["ac"],
+    )
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=90, ha="center", fontsize=7)
+    ax.set_ylabel("Tiempo (s)")
+    ax.set_title(
+        "Instancias grandes - Tiempo CPU ALNS vs AC, todas las instancias (Tabla 3)"
+    )
+    ax.legend()
+    ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
+    ax.grid(axis="y", alpha=0.3)
+    fig.tight_layout()
+    out = LARGE_DIR / "paper_large_time_bars.png"
+    _savefig(fig, out)
+    return out
+
+
 def _large_summary_bars() -> Path:
     """Resumen global: promedio energía, RPD y tiempo ALNS vs AC (Tabla 3)."""
     import numpy as np
@@ -452,6 +558,9 @@ def generate_large_charts() -> list[Path]:
         saved.append(_large_energy_bars_group(grp, i, n))
         saved.append(_large_rpd_bars_group(grp, i, n))
         saved.append(_large_time_bars_group(grp, i, n))
+    saved.append(_large_energy_bars_all())
+    saved.append(_large_rpd_bars_all())
+    saved.append(_large_time_bars_all())
     saved.append(_large_summary_bars())
     return saved
 
@@ -690,6 +799,72 @@ def _evd_pct_group(rows: list, g: int, total_groups: int) -> Path:
     return out
 
 
+def _evd_bars_all() -> Path:
+    """E_min vs E_dist — todas las instancias en un solo gráfico (Tabla 6)."""
+    import numpy as np
+
+    labels = [r[0] for r in EVD_DATA]
+    e_min = [r[1] for r in EVD_DATA]
+    e_dist = [r[2] for r in EVD_DATA]
+
+    x = np.arange(len(labels))
+    w = 0.35
+    fig, ax = plt.subplots(figsize=(max(13, len(labels) * 0.45), 6))
+    ax.bar(x - w / 2, e_min, w, label="E_min (energía)", color=_COLORS["e_min"])
+    ax.bar(x + w / 2, e_dist, w, label="E_dist (distancia)", color=_COLORS["e_dist"])
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=90, ha="center", fontsize=7)
+    ax.set_ylabel("Energía (kWh)")
+    ax.set_title(
+        "Energía vs Distancia - E_min vs E_dist, todas las instancias (Tabla 6)"
+    )
+    ax.legend()
+    ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
+    ax.grid(axis="y", alpha=0.3)
+    fig.tight_layout()
+    out = EXTRAS_DIR / "paper_evd_bars.png"
+    _savefig(fig, out)
+    return out
+
+
+def _evd_pct_all() -> Path:
+    """% incremento energía al usar distancia — todas las instancias (Tabla 6)."""
+    import numpy as np
+
+    labels = [r[0] for r in EVD_DATA]
+    pcts = [r[3] for r in EVD_DATA]
+
+    x = np.arange(len(labels))
+    fig, ax = plt.subplots(figsize=(max(13, len(labels) * 0.45), 6))
+    bars = ax.bar(x, pcts, color=_COLORS["pct"])
+    ax.axhline(
+        EVD_AVG["pct"],
+        color="black",
+        ls=":",
+        lw=1.2,
+        label=f"Media global: {EVD_AVG['pct']:.2f}%",
+    )
+    for bar, v in zip(bars, pcts):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.2,
+            f"{v:.1f}%",
+            ha="center",
+            va="bottom",
+            fontsize=6,
+        )
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=90, ha="center", fontsize=7)
+    ax.set_ylabel("% incremento energía")
+    ax.set_title("Energía vs Distancia - % incremento, todas las instancias (Tabla 6)")
+    ax.legend()
+    ax.grid(axis="y", alpha=0.3)
+    fig.tight_layout()
+    out = EXTRAS_DIR / "paper_evd_pct.png"
+    _savefig(fig, out)
+    return out
+
+
 def _evd_summary() -> Path:
     """Resumen global: promedio E_min vs E_dist y % medio (Tabla 6)."""
     import numpy as np
@@ -745,6 +920,8 @@ def generate_extras_charts() -> list[Path]:
     for i, grp in enumerate(groups, start=1):
         saved.append(_evd_bars_group(grp, i, n))
         saved.append(_evd_pct_group(grp, i, n))
+    saved.append(_evd_bars_all())
+    saved.append(_evd_pct_all())
     saved.append(_evd_summary())
 
     return saved

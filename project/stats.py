@@ -27,7 +27,11 @@ except ImportError:
 
 try:
     from main import (
+        _draw_large_3runs_on_ax,
+        _draw_nodes,
+        _draw_routes_on_ax,
         _save_bar_chart,
+        load_instance,
         save_grouped_large_maps,
         save_grouped_small_maps,
         stats_png_path,
@@ -627,6 +631,198 @@ def _enrich_small_rows(
     return enriched
 
 
+def _customers_from_instance(name: str) -> int:
+    if match := re.match(r"C(\d+)R", name):
+        return int(match.group(1))
+    return 0
+
+
+def _relevant_small_score(row: dict) -> float:
+    """Mayor puntaje = mejor candidato para mapa EH-SA/TS vs CPLEX en el informe.
+
+    Prioriza: gap visible (40-180 %), CPLEX multi-ruta, visitas a estaciones y
+    tamaño legible (C18-C24).
+    """
+    eh_routes = row.get("eh_routes") or row.get("eh_paths")
+    mip_routes = row.get("mip_routes")
+    gap = row.get("gap_pct")
+    if not eh_routes or not mip_routes or gap is None or gap < 40:
+        return -1.0
+    cp_n = len(mip_routes)
+    visits = int(row.get("station_visits") or 0)
+    n = _customers_from_instance(row["instance"])
+    gap_score = min(float(gap), 180.0)
+    route_score = max(cp_n - 1, 0) * 15.0
+    visit_score = min(visits, 7) * 8.0
+    size_score = 10.0 if 18 <= n <= 24 else (5.0 if 12 <= n <= 17 else 0.0)
+    return gap_score + route_score + visit_score + size_score
+
+
+def _pick_relevant_small_row(rows: list[dict]) -> dict | None:
+    candidates = [
+        (score, row) for row in rows if (score := _relevant_small_score(row)) >= 0
+    ]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    return candidates[0][1]
+
+
+def _relevant_large_score(row: dict) -> float:
+    """Mayor puntaje = mejor candidato para mapa B* / rep. / peor (variabilidad EH).
+
+    Prioriza: rutas distintas entre mejor y peor, RPD alto y tamaño C25 (más legible).
+    """
+    if row.get("best") is None:
+        return -1.0
+    best_routes = row.get("best_routes")
+    worst_routes = row.get("worst_routes")
+    if not best_routes or not worst_routes or best_routes == worst_routes:
+        return -1.0
+    max_rpd = float(row.get("max_rpd") or 0)
+    mean_rpd = float(row.get("mean_rpd") or 0)
+    std = float(row.get("std") or 0)
+    n = _customers_from_instance(row["instance"])
+    rpd_score = min(max_rpd, 40.0) * 3.0 + mean_rpd
+    std_score = min(std, 150.0) * 0.2
+    size_score = 15.0 if n == 25 else (8.0 if n == 50 else 0.0)
+    return rpd_score + std_score + size_score
+
+
+def _pick_relevant_large_row(rows: list[dict]) -> dict | None:
+    candidates = [
+        (score, row) for row in rows if (score := _relevant_large_score(row)) >= 0
+    ]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    return candidates[0][1]
+
+
+def save_relevant_small_map(
+    prefix: str,
+    rows: list[dict],
+    *,
+    category: str = "small",
+) -> Path | None:
+    """Un solo mapa EH-SA/TS vs CPLEX para el informe (map_relevant.png)."""
+    if not MATPLOTLIB_AVAILABLE or not MAIN_AVAILABLE:
+        return None
+    row = _pick_relevant_small_row(rows)
+    if not row:
+        print("[stats] Sin instancia candidata para map_relevant (small).")
+        return None
+
+    inst = row["instance"]
+    eh_routes = row.get("eh_routes") or row.get("eh_paths")
+    mip_routes = row.get("mip_routes")
+    if not eh_routes:
+        return None
+
+    vertices, _, _ = load_instance(inst)
+    gap = row.get("gap_pct")
+    eh_energy = row.get("eh_energy") or row.get("energy")
+    ref_energy = row.get("mip_energy") or row.get("cplex_energy")
+
+    fig, ax = plt.subplots(figsize=(11, 9))
+    _draw_nodes(ax, vertices)
+    if mip_routes:
+        _draw_routes_on_ax(
+            ax,
+            vertices,
+            mip_routes,
+            color="#9467bd",
+            linestyle="-",
+            linewidth=2.2,
+            alpha=0.85,
+            label="CPLEX",
+        )
+    _draw_routes_on_ax(
+        ax,
+        vertices,
+        eh_routes,
+        color="#ff7f0e",
+        linestyle="--",
+        linewidth=2.2,
+        alpha=0.9,
+        label="EH-SA/TS",
+    )
+    title_bits = [inst]
+    if ref_energy is not None and eh_energy is not None:
+        title_bits.append(f"CPLEX {ref_energy:.0f} | EH {eh_energy:.0f} kWh")
+    ax.set_title("\n".join(title_bits), fontsize=11)
+    ax.set_xlabel("X (millas)")
+    ax.set_ylabel("Y (millas)")
+    ax.grid(True, alpha=0.25)
+    ax.set_aspect("equal", adjustable="box")
+    ax.legend(loc="lower left", fontsize=10, framealpha=0.92)
+    gap_txt = f" | Gap {gap:.1f}%" if gap is not None else ""
+    fig.suptitle(
+        f"Mapa representativo — {inst} (EH-SA/TS vs CPLEX){gap_txt}",
+        fontsize=13,
+        fontweight="bold",
+    )
+    fig.tight_layout()
+    out = stats_png_path(prefix, "map_relevant", category)
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(
+        f"[stats] Mapa representativo small: {inst}"
+        + (f" (gap {gap:.1f}%)" if gap is not None else "")
+    )
+    return out
+
+
+def save_relevant_large_map(
+    prefix: str,
+    rows: list[dict],
+    *,
+    category: str = "large",
+) -> Path | None:
+    """Un solo mapa B* / rep. / peor superpuesto para el informe (map_relevant.png)."""
+    if not MATPLOTLIB_AVAILABLE or not MAIN_AVAILABLE:
+        return None
+    row = _pick_relevant_large_row(rows)
+    if not row:
+        print("[stats] Sin instancia candidata para map_relevant (large).")
+        return None
+
+    inst = row["instance"]
+    vertices, _, _ = load_instance(inst)
+    mean_rpd = row.get("mean_rpd")
+
+    fig, ax = plt.subplots(figsize=(11, 9))
+    _draw_large_3runs_on_ax(
+        ax,
+        vertices,
+        row.get("best_routes"),
+        row.get("worst_routes"),
+        row.get("avg_routes"),
+        inst,
+        best_energy=row.get("best_energy") or row.get("best"),
+        worst_energy=row.get("worst_energy") or row.get("worst"),
+        avg_energy=row.get("avg_energy") or row.get("mean"),
+        show_legend=True,
+    )
+    ax.set_xlabel("X (millas)")
+    ax.set_ylabel("Y (millas)")
+    rpd_txt = f" | RPD medio {mean_rpd:.1f}%" if mean_rpd is not None else ""
+    fig.suptitle(
+        f"Mapa representativo — {inst} (EH-SA/TS: B* / rep. / peor){rpd_txt}",
+        fontsize=13,
+        fontweight="bold",
+    )
+    fig.tight_layout()
+    out = stats_png_path(prefix, "map_relevant", category)
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(
+        f"[stats] Mapa representativo large: {inst}"
+        + (f" (RPD medio {mean_rpd:.1f}%)" if mean_rpd is not None else "")
+    )
+    return out
+
+
 def generate_small_charts(
     prefix: str,
     data: dict,
@@ -753,6 +949,7 @@ def generate_small_charts(
 
     if with_maps:
         add(save_grouped_small_maps(prefix, small_rows, category="small"))
+        add(save_relevant_small_map(prefix, small_rows, category="small"))
 
     return saved
 
@@ -847,6 +1044,7 @@ def generate_large_charts(
 
     if with_maps:
         add(save_grouped_large_maps(prefix, large_rows, category="large"))
+        add(save_relevant_large_map(prefix, large_rows, category="large"))
 
     return saved
 
@@ -869,6 +1067,8 @@ def generate_extras_charts(prefix: str, mode: str, data: dict) -> list[Path]:
     energy-vs-distance:
       - evd_bars_g<N>         → Energía E_min vs E_dist por grupo de instancias
       - evd_pct_g<N>          → % incremento energía al minimizar distancia por grupo
+      - evd_time_g<N>         → Tiempo EH-SA/TS por grupo
+      - evd_bars / evd_pct / evd_time → Mismas métricas, todas las instancias (si hay >1 grupo)
     """
     if not MATPLOTLIB_AVAILABLE or not MAIN_AVAILABLE:
         print("[stats] matplotlib o main.py no disponible.")
@@ -1050,6 +1250,45 @@ def generate_extras_charts(prefix: str, mode: str, data: dict) -> list[Path]:
                     {"Tiempo EH (s)": ts},
                     category="extras",
                     title=f"Tiempo EH-SA/TS - {range_str}",
+                    ylabel="Tiempo (s)",
+                    rotate=90,
+                )
+            )
+
+        if len(chunks) > 1:
+            range_all = f"{labels[0]}-{labels[-1]}" if len(labels) > 1 else labels[0]
+            add(
+                _save_bar_chart(
+                    prefix,
+                    "evd_bars",
+                    labels,
+                    {"E_min (kWh)": e_min, "E_dist (kWh)": e_dist},
+                    category="extras",
+                    title=f"Energía vs distancia - {range_all} (todas)",
+                    ylabel="Energía (kWh)",
+                    rotate=90,
+                )
+            )
+            add(
+                _save_bar_chart(
+                    prefix,
+                    "evd_pct",
+                    labels,
+                    {"% inc. energía": pct},
+                    category="extras",
+                    title=f"% incremento al minimizar distancia - {range_all} (todas)",
+                    ylabel="%",
+                    rotate=90,
+                )
+            )
+            add(
+                _save_bar_chart(
+                    prefix,
+                    "evd_time",
+                    labels,
+                    {"Tiempo EH (s)": times},
+                    category="extras",
+                    title=f"Tiempo EH-SA/TS - {range_all} (todas)",
                     ylabel="Tiempo (s)",
                     rotate=90,
                 )
