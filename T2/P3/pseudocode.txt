@@ -1,0 +1,38 @@
+ACO (instancia, alpha, beta, p, n_ants, max_iter):
+
+    t = inicializar_feromonas_greedy(instancia)
+
+    best = greedy_estocastico(instancia)
+    iter = 1
+    sin_mejora = 0
+
+    WHILE iter <= max_iter Y sin_mejora < 30:
+
+        soluciones = []
+
+        // Construcción de soluciones por la colonia
+        PARA hormiga en 1..n_ants
+
+            S = construir_solucion(instancia, t, alpha, beta)
+            beneficio = evaluar(S)
+            soluciones.agregar((S, beneficio))
+
+        // Seleccionar mejor solucion de la iteracion
+        iter_best = mejor(soluciones)
+
+        // Intensificacion a traves de busqueda local
+        iter_best = busqueda_local(iter_best)
+
+        // Actualizo mejor solucion global
+        IF beneficio(iter_best) > beneficio(best):
+            best = iter_best
+            sin_mejora = 0
+        ELSE:
+            sin_mejora = sin_mejora + 1
+
+        //Actualizar matriz de feromonas
+        actualizat_feromonas(t, soluciones, best, p)
+
+        iter = iter + 1
+    
+    RETURN best
