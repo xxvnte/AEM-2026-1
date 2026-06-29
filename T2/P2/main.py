@@ -4,6 +4,8 @@ import time
 from collections import deque
 from pathlib import Path
 
+DEFAULT_LIST = 50
+
 
 def parse_instance(file_path):
     with open(file_path) as file_handle:
@@ -222,9 +224,12 @@ def tabu_search(
     tabu_queue = deque()
     tabu_moves = set()
 
-    benefit_history = [current_benefit]
+    best_history = [current_benefit]
+    current_history = [current_benefit]
+    iter_times = [0.0]
 
     non_selected = set(range(item_count)) - current_solution
+    t_start = time.time()
 
     for iteration in range(max_iterations):
         neighbors = []
@@ -355,28 +360,55 @@ def tabu_search(
             best_benefit = current_benefit
             best_solution = set(current_solution)
 
-        benefit_history.append(best_benefit)
+        best_history.append(best_benefit)
+        current_history.append(current_benefit)
+        iter_times.append(time.time() - t_start)
 
-    return best_solution, best_benefit, benefit_history
+    return best_solution, best_benefit, best_history, current_history, iter_times
+
+
+def ask_tenure():
+    print(f"\n  Parámetro: largo de lista tabú (tenure)")
+    print(f"  Default: {DEFAULT_LIST}")
+    raw = input(f"  Ingrese tenure [Enter = {DEFAULT_LIST}]: ").strip()
+    if raw == "":
+        print(f"  -> Usando tenure default: {DEFAULT_LIST}")
+        return DEFAULT_LIST
+    try:
+        val = int(raw)
+        if val <= 0:
+            raise ValueError
+        print(f"  -> Usando tenure: {val}")
+        return val
+    except ValueError:
+        print(f"  -> Valor invalido, usando default: {DEFAULT_LIST}")
+        return DEFAULT_LIST
 
 
 def run_tabu_instance(
     instance_name,
     file_path,
+    tabu_tenure,
     max_iterations=200,
-    tabu_tenure=10,
     stochastic_runs=10,
     stochastic_alpha=0.3,
+    output_lines=None,
 ):
-    print(f"\n{'=' * 65}")
-    print(f"  TABU SEARCH - Instancia: {instance_name}")
-    print(f"{'=' * 65}")
+    def log(line):
+        print(line)
+        if output_lines is not None:
+            output_lines.append(line)
+
+    log(f"\n{'=' * 65}")
+    log(f"  TABU SEARCH - Instancia: {instance_name}")
+    log(f"{'=' * 65}")
 
     item_count, resource_count, budget, benefits, weights, adjacency = parse_instance(
         file_path
     )
-    print(f"  m={item_count}, n={resource_count}, B={budget}")
-    print(f"  Parámetros TS: max_iter={max_iterations}, tenure={tabu_tenure}")
+    log(f"  m={item_count}, n={resource_count}, B={budget}")
+    log(f"  Tenure usado: {tabu_tenure}")
+    log(f"  Parámetros TS: max_iter={max_iterations}, tenure={tabu_tenure}")
 
     deterministic_start = time.time()
     deterministic_solution = greedy_deterministic(
@@ -389,7 +421,9 @@ def run_tabu_instance(
     (
         tabu_from_deterministic_solution,
         tabu_from_deterministic_benefit,
-        deterministic_history,
+        best_hist_det,
+        curr_hist_det,
+        times_det,
     ) = tabu_search(
         item_count,
         budget,
@@ -406,11 +440,9 @@ def run_tabu_instance(
     )[1]
     deterministic_elapsed = time.time() - deterministic_start
 
-    print(f"\n  [TS desde Greedy Determinista]")
-    print(
-        f"    Inicio   : beneficio={deterministic_benefit}, costo={deterministic_cost}"
-    )
-    print(
+    log(f"\n  [TS desde Greedy Determinista]")
+    log(f"    Inicio   : beneficio={deterministic_benefit}, costo={deterministic_cost}")
+    log(
         f"    Resultado: beneficio={tabu_from_deterministic_benefit}, "
         f"costo={tabu_from_deterministic_cost}"
     )
@@ -421,10 +453,13 @@ def run_tabu_instance(
         if deterministic_benefit > 0
         else 0
     )
-    print(f"    Mejora vs partida: {deterministic_improvement:+.2f}%")
-    print(f"    Tiempo   : {deterministic_elapsed:.4f}s")
+    log(f"    Mejora vs partida: {deterministic_improvement:+.2f}%")
+    log(f"    Tiempo   : {deterministic_elapsed:.4f}s")
+    log(f"    Best History Det: {' '.join(map(str, best_hist_det))}")
+    log(f"    Current History Det: {' '.join(map(str, curr_hist_det))}")
+    log(f"    Iter Times Det: {' '.join(f'{v:.4f}' for v in times_det)}")
 
-    print(
+    log(
         f"\n  [TS desde Greedy Estocástico x{stochastic_runs}, alpha={stochastic_alpha}]"
     )
     stochastic_start_benefits = []
@@ -446,7 +481,13 @@ def run_tabu_instance(
         )
         stochastic_start_benefits.append(stochastic_benefit)
 
-        tabu_solution, tabu_benefit, stochastic_history = tabu_search(
+        (
+            tabu_solution,
+            tabu_benefit,
+            best_hist_sto,
+            curr_hist_sto,
+            times_sto,
+        ) = tabu_search(
             item_count,
             budget,
             benefits,
@@ -460,12 +501,29 @@ def run_tabu_instance(
         tabu_cost = evaluate_solution(tabu_solution, benefits, weights, adjacency)[1]
         run_elapsed = time.time() - run_start
         tabu_from_stochastic_results.append(
-            (tabu_benefit, tabu_cost, run_elapsed, stochastic_history)
+            (
+                tabu_benefit,
+                tabu_cost,
+                run_elapsed,
+                best_hist_sto,
+                curr_hist_sto,
+                times_sto,
+            )
         )
 
-        print(
+        log(
             f"    Run {run_index + 1:2d}: partida={stochastic_benefit:>7}  "
             f"TS={tabu_benefit:>7}  costo={tabu_cost:>7}  t={run_elapsed:.4f}s"
+        )
+        log(
+            f"    Best History Sto {run_index + 1}: {' '.join(map(str, best_hist_sto))}"
+        )
+        log(
+            f"    Current History Sto {run_index + 1}: {' '.join(map(str, curr_hist_sto))}"
+        )
+        log(
+            f"    Iter Times Sto {run_index + 1}: "
+            f"{' '.join(f'{v:.4f}' for v in times_sto)}"
         )
 
     tabu_stochastic_benefits = [result[0] for result in tabu_from_stochastic_results]
@@ -477,15 +535,15 @@ def run_tabu_instance(
     stochastic_worst = min(tabu_stochastic_benefits)
     stochastic_median = statistics.median(tabu_stochastic_benefits)
 
-    print(f"\n  Estadísticas TS desde Greedy Estocástico:")
-    print(f"    Media     : {stochastic_mean:.2f}")
-    print(f"    Desv. Est.: {stochastic_std:.2f}")
-    print(f"    Mejor     : {stochastic_best}")
-    print(f"    Peor      : {stochastic_worst}")
-    print(f"    Mediana   : {stochastic_median:.1f}")
+    log(f"\n  Estadísticas TS desde Greedy Estocástico:")
+    log(f"    Media     : {stochastic_mean:.2f}")
+    log(f"    Desv. Est.: {stochastic_std:.2f}")
+    log(f"    Mejor     : {stochastic_best}")
+    log(f"    Peor      : {stochastic_worst}")
+    log(f"    Mediana   : {stochastic_median:.1f}")
 
     best_overall = max(tabu_from_deterministic_benefit, stochastic_best)
-    print(f"\n  Mejor global (det vs sto): {best_overall}")
+    log(f"\n  Mejor global (det vs sto): {best_overall}")
 
     return {
         "name": instance_name,
@@ -496,7 +554,9 @@ def run_tabu_instance(
         "sto_best_ben": max(stochastic_start_benefits),
         "ts_det_ben": tabu_from_deterministic_benefit,
         "ts_det_cost": tabu_from_deterministic_cost,
-        "hist_det": deterministic_history,
+        "best_hist_det": best_hist_det,
+        "curr_hist_det": curr_hist_det,
+        "times_det": times_det,
         "ts_sto_results": tabu_from_stochastic_results,
         "ts_sto_mean": stochastic_mean,
         "ts_sto_std": stochastic_std,
@@ -504,12 +564,14 @@ def run_tabu_instance(
         "ts_sto_worst": stochastic_worst,
         "ts_sto_median": stochastic_median,
         "ts_best_overall": best_overall,
+        "tabu_tenure": tabu_tenure,
     }
 
 
 if __name__ == "__main__":
     PART_DIR = Path(__file__).resolve().parent
     CASES_DIR = PART_DIR.parent / "cases"
+
     INSTANCE_SPECS = [
         ("easy", CASES_DIR / "easy.txt"),
         ("medium1", CASES_DIR / "medium1.txt"),
@@ -517,21 +579,26 @@ if __name__ == "__main__":
         ("hard", CASES_DIR / "hard.txt"),
     ]
     TABU_MAX_ITERATIONS = 200
-    TABU_TENURE = 10
     STOCHASTIC_RUNS = 10
     STOCHASTIC_ALPHA = 0.3
 
+    TABU_TENURE = ask_tenure()
+    RESULTS_FILE = PART_DIR / f"results_tenure{TABU_TENURE}.txt"
+
+    output_lines = [f"  Tenure usado: {TABU_TENURE}"]
     all_results = []
+
     for instance_name, instance_path in INSTANCE_SPECS:
         if instance_path.exists():
             all_results.append(
                 run_tabu_instance(
                     instance_name,
                     instance_path,
-                    max_iterations=TABU_MAX_ITERATIONS,
                     tabu_tenure=TABU_TENURE,
+                    max_iterations=TABU_MAX_ITERATIONS,
                     stochastic_runs=STOCHASTIC_RUNS,
                     stochastic_alpha=STOCHASTIC_ALPHA,
+                    output_lines=output_lines,
                 )
             )
         else:
@@ -547,8 +614,21 @@ if __name__ == "__main__":
         )
         print(summary_header)
         print("  " + "-" * 70)
+
+        output_lines.extend(
+            [
+                "",
+                "",
+                "=" * 75,
+                "  RESUMEN GLOBAL - TABU SEARCH",
+                "=" * 75,
+                summary_header,
+                "  " + "-" * 70,
+            ]
+        )
+
         for result in all_results:
-            print(
+            row = (
                 f"  {result['name']:<10} "
                 f"{result['det_ben']:>8} "
                 f"{result['ts_det_ben']:>8} "
@@ -557,3 +637,8 @@ if __name__ == "__main__":
                 f"{result['ts_sto_mean']:>9.1f} "
                 f"{result['ts_sto_std']:>8.1f}"
             )
+            print(row)
+            output_lines.append(row)
+
+    RESULTS_FILE.write_text("\n".join(output_lines), encoding="utf-8")
+    print(f"\n  Resultados guardados en: {RESULTS_FILE}")
