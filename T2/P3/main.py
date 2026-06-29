@@ -567,6 +567,42 @@ def run_experiments(inst: Instance, inst_name: str, n_runs: int = 10) -> Tuple[D
     log(f"    Tiempo    : {gd_time:.4f}s")
     log()
 
+
+    # Greedy Estocástico - 10 corridas
+    sto_benefits = []
+    sto_costs = []
+    sto_times = []
+    for run_id in range(n_runs):
+        seed = BASE_SEED + run_id * 7  # mismas semillas que ACO
+        rng = random.Random(seed)
+        t0 = time.perf_counter()
+        sol = greedy_stochastic(inst, rng, alpha_g=0.3)
+        elapsed = time.perf_counter() - t0
+        benefit, cost, _ = evaluate_solution(sol, inst)
+        sto_benefits.append(benefit)
+        sto_costs.append(cost)
+        sto_times.append(elapsed)
+
+    log("  [Greedy Estocástico (10 corridas)]")
+    for idx, (b, c, t) in enumerate(zip(sto_benefits, sto_costs, sto_times), 1):
+        log(f"    Run {idx:2d}: beneficio=  {b:<5d}  costo=  {c:<5d}  t={t:.4f}s")
+    log()
+    mean_sto = statistics.mean(sto_benefits)
+    std_sto = statistics.stdev(sto_benefits) if len(sto_benefits) > 1 else 0
+    best_sto = max(sto_benefits)
+    worst_sto = min(sto_benefits)
+    median_sto = statistics.median(sto_benefits)
+    avg_time_sto = statistics.mean(sto_times)
+    log("  Estadísticas Greedy Estocástico:")
+    log(f"    Media     : {mean_sto:.2f}")
+    log(f"    Desv. Est.: {std_sto:.2f}")
+    log(f"    Mejor     : {best_sto}")
+    log(f"    Peor      : {worst_sto}")
+    log(f"    Mediana   : {median_sto:.1f}")
+    log(f"    Tiempo prom: {avg_time_sto:.4f}s")
+    log()
+
+
     # ACO Runs
     log(f"  [ACO x{n_runs} corridas independientes]")
     aco_benefits = []
@@ -593,6 +629,7 @@ def run_experiments(inst: Instance, inst_name: str, n_runs: int = 10) -> Tuple[D
     best_b = max(aco_benefits)
     worst_b = min(aco_benefits)
     median_b = statistics.median(aco_benefits)
+    avg_time_aco = statistics.mean(aco_times)
 
     log("  Estadísticas ACO:")
     log(f"    Media     : {mean_b:.2f}")
@@ -624,20 +661,38 @@ def run_experiments(inst: Instance, inst_name: str, n_runs: int = 10) -> Tuple[D
     # Asumiendo que sumas los tiempos individuales, o puedes medir el tiempo total
     total_time = gd_time + sum(aco_times) 
 
-    log("  Comparación:")
-    log(f"    Greedy Det.   : {gd_b}")
-    log(f"    Mejor ACO     : {best_b}")
-    log(f"    Gap (ACO vs det.): {gap_pct:+.2f}%")
+
+    # COMPARACION DE RESULTADOS
+
+    log("  Comparativa:")
+    log(f"    Greedy Det.        : {gd_b}")
+    log(f"    Greedy Sto. (mejor): {best_sto}")
+    log(f"    Greedy Sto. (media): {mean_sto:.2f}")
+    log(f"    ACO (mejor)        : {best_b}")
+    log(f"    ACO (media)        : {mean_b:.2f}")
+    if gd_b > 0:
+        gap_aco_vs_det = ((best_b - gd_b) / gd_b) * 100
+        log(f"    Gap ACO vs Det.   : {gap_aco_vs_det:+.2f}%")
+    if best_sto > 0:
+        gap_aco_vs_sto = ((best_b - best_sto) / best_sto) * 100
+        log(f"    Gap ACO vs Sto.   : {gap_aco_vs_sto:+.2f}%")
     log()
+    total_time = gd_time + sum(sto_times) + sum(aco_times)
     log(f"  Tiempo total instancia: {total_time:.4f}s")
     log()
 
     stats = {
         "instance": config_name,
         "det": gd_b,
-        "best": best_b,
-        "mean": mean_b,
-        "std": std_b
+        "sto_best": best_sto,
+        "sto_mean": mean_sto,
+        "sto_std": std_sto,
+        "aco_best": best_b,
+        "aco_mean": mean_b,
+        "aco_std": std_b,
+        "aco_worst": worst_b,
+        "aco_t_avg": avg_time_aco,
+        "aco_runs": n_runs,
     }
 
     return stats, "\n".join(lines)
@@ -734,10 +789,12 @@ def main():
     summary_lines.append("===========================================================================")
     summary_lines.append("  RESUMEN GLOBAL - ACO")
     summary_lines.append("===========================================================================")
-    summary_lines.append("  Inst.       Det.Ini   ACO.Best  ACO.Mean  ACO.Std")
+    summary_lines.append("  Inst.       Det.Ini   Sto.Mejor  Sto.Media  ACO.Best  ACO.Mean  ACO.Std")
     summary_lines.append("  ----------------------------------------------------------------------")
     for s in all_stats:
-        summary_lines.append(f"  {s['instance']:<12} {s['det']:>7}   {s['best']:>8}  {s['mean']:>8.1f}  {s['std']:>7.1f}")
+        summary_lines.append(
+            f"  {s['instance']:<12} {s['det']:>7}   {s['sto_best']:>8}  {s['sto_mean']:>8.1f}  {s['aco_best']:>8}  {s['aco_mean']:>8.1f}  {s['aco_std']:>7.1f}"
+        )
     summary_lines.append("")
 
     summary_text = "\n".join(summary_lines)
