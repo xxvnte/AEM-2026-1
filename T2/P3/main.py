@@ -61,11 +61,20 @@ DECISIONES DE DISEÑO
    donde  Δτ_i^k = L_k / L_best_global  si la hormiga k seleccionó i, else 0.
    Depositar proporcional a L_k/L_best incentiva a las hormigas que encontraron
    mejores soluciones a dejar más rastro, análogo a "más comida → más feromona".
+
+6. VERSIÓN EXTENDIDA — agrega:
+  (A) Registro de convergencia poblacional por iteración (mejor / media / peor
+      de la colonia + tiempo acumulado) -> convergence_data.csv
+  (B) Barrido de parámetros (rho) con >=5 valores y >=5 repeticiones cada uno,
+      análogo a la tabla de "tenure" usada para Tabu Search -> param_sweep.csv
+      y agregado también al texto de results.txt
+
 ==============================================================================
 """
 
 import os
 import sys
+import csv
 import random
 import math
 import time
@@ -74,29 +83,42 @@ from typing import List, Tuple, Dict, Set, Optional
 
 # ─────────────────────────── CONSTANTES GLOBALES ────────────────────────────
 
-# CASES_DIR = "cases"
-# RESULTS_FILE = "results.txt"
-# INSTANCE_FILES = ["easy.txt", "medium1.txt", "medium2.txt", "hard.txt"]
-
-# # Semilla base para reproducibilidad (cada ejecución la desplaza levemente)
-# BASE_SEED = 42
-
-
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-# Asumiendo que main.py está en T2/P3/ y cases/ está en T2/cases/
 CASES_DIR = os.path.join(SCRIPT_DIR, "..", "cases")
 RESULTS_FILE = os.path.join(SCRIPT_DIR, "results.txt")
+CONVERGENCE_FILE = os.path.join(SCRIPT_DIR, "convergence_data.csv")
+SWEEP_FILE = os.path.join(SCRIPT_DIR, "param_sweep.csv")
 
 INSTANCE_FILES = ["easy.txt", "medium1.txt", "medium2.txt", "hard.txt"]
 
 # Semilla base para reproducibilidad (cada ejecución la desplaza levemente)
 BASE_SEED = 42
 
+# Instancias sobre las que se ejecuta el barrido de parámetros.
+# ADVERTENCIA: el ACO completo es costoso (ver tiempos en tu results.txt
+# original: ~13s easy, ~150-370s medium, ~330s hard POR CORRIDA). Un barrido
+# de 5 valores x 5 repeticiones sobre TODAS las instancias puede tardar horas.
+# Por defecto se corre solo en "easy" y "medium1"; agrega más nombres si tienes
+# tiempo disponible (o reduce N_ITER_SWEEP / N_REPS_SWEEP).
+
+# ========================================================
+# SWEEP_INSTANCES = ["easy", "medium1"]
+SWEEP_INSTANCES = ["easy", "medium1", "medium2", "hard"]
+# ========================================================
+
+
+RHO_SWEEP_VALUES = [0.03, 0.05, 0.08, 0.12, 0.18]
+N_REPS_SWEEP = 5
+# Si quieres un barrido más rápido (a costa de menor precisión), reduce las
+# iteraciones SOLO para el barrido (no afecta las corridas normales del ACO):
+SWEEP_ITER_FACTOR = 1.0  # 1.0 = mismas iteraciones que la config base; 0.5 = mitad
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  1. PARSER DE INSTANCIAS
 # ══════════════════════════════════════════════════════════════════════════════
 
 class Instance:
+
     """
     Almacena todos los datos de una instancia del problema.
     Attributes:
@@ -108,6 +130,7 @@ class Instance:
         weights   : lista de pesos w_j       (índice 0..n-1)
         alt_resources : dict {i: set(j)} – recursos que requiere la alternativa i
     """
+
     def __init__(self, m: int, n: int, ne: int, B: int,
                  benefits: List[int], weights: List[int],
                  alt_resources: Dict[int, Set[int]]):
@@ -121,7 +144,8 @@ class Instance:
 
     @classmethod
     def from_file(cls, filepath: str) -> "Instance":
-        """Lee una instancia desde el formato estándar de benchmarks."""
+
+        # Lee una instancia desde el formato estandar de benchmarks
         with open(filepath, "r") as f:
             lines = [ln.strip() for ln in f if ln.strip()]
 
@@ -150,13 +174,14 @@ class Instance:
 #  2. EVALUACIÓN DE SOLUCIONES
 # ══════════════════════════════════════════════════════════════════════════════
 
-def evaluate_solution(selected: List[int],
-                      inst: Instance) -> Tuple[int, int, bool]:
+def evaluate_solution(selected: List[int], inst: Instance) -> Tuple[int, int, bool]:
+
     """
     Evalúa un subconjunto de alternativas seleccionadas.
     Retorna (beneficio_total, costo_total, es_factible).
     El costo se calcula usando UNION de recursos (costo compartido).
     """
+
     used_resources: Set[int] = set()
     total_benefit = 0
     for i in selected:
@@ -168,11 +193,13 @@ def evaluate_solution(selected: List[int],
 
 
 def marginal_cost(i: int, active_resources: Set[int], inst: Instance) -> int:
+
     """
     Costo marginal de agregar la alternativa i dado que 'active_resources'
     ya está activado en la solución parcial.
     = suma de pesos de recursos nuevos que i aportaría.
     """
+
     new_res = inst.alt_resources[i] - active_resources
     return sum(inst.weights[j] for j in new_res)
 
@@ -181,12 +208,14 @@ def marginal_cost(i: int, active_resources: Set[int], inst: Instance) -> int:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def greedy_deterministic(inst: Instance) -> List[int]:
+
     """
     Greedy determinista: ordena alternativas por ratio beneficio/costo_inicial
     y las incorpora en orden decreciente siempre que no excedan la capacidad.
     Nota: el costo se recalcula de forma marginal a medida que se construye la
     solución, para aprovechar la compartición de recursos.
     """
+
     # Ranking inicial por p_i / (costo_propio_i + ε)
     def init_ratio(i):
         c = sum(inst.weights[j] for j in inst.alt_resources[i])
@@ -213,18 +242,20 @@ def greedy_deterministic(inst: Instance) -> List[int]:
 
 def greedy_stochastic(inst: Instance, rng: random.Random,
                       alpha_g: float = 0.3) -> List[int]:
+    
     """
     Greedy estocástico tipo GRASP: construye una Lista Restringida de
     Candidatos (RCL) y elige al azar de ella.
     alpha_g ∈ [0,1]: 0 = completamente greedy, 1 = completamente aleatorio.
     """
+
     selected: List[int] = []
     active_res: Set[int] = set()
     current_cost = 0
     remaining = set(range(inst.m))
 
+    # Calcular ratio beneficio/costo_marginal para cada candidato restante
     while remaining:
-        # Calcular ratio beneficio/costo_marginal para cada candidato restante
         feasible = []
         for i in remaining:
             mc = marginal_cost(i, active_res, inst)
@@ -256,6 +287,7 @@ def greedy_stochastic(inst: Instance, rng: random.Random,
 # ══════════════════════════════════════════════════════════════════════════════
 
 class ACO:
+
     """
     Ant Colony Optimization para maximización con costos compartidos.
 
@@ -282,14 +314,18 @@ class ACO:
 
     def __init__(self, inst: Instance, config_name: str = "medium1",
                  seed: int = BASE_SEED, K_greedy: int = 20,
-                 verbose: bool = False):
+                 verbose: bool = False, param_overrides: Optional[Dict] = None,
+                 iter_factor: float = 1.0):
         self.inst = inst
-        cfg = ACO.CONFIGS.get(config_name, ACO.CONFIGS["medium1"])
+        cfg = dict(ACO.CONFIGS.get(config_name, ACO.CONFIGS["medium1"]))
+        if param_overrides:
+            cfg.update(param_overrides)
+
         self.alpha   = cfg["alpha"]
         self.beta    = cfg["beta"]
         self.rho     = cfg["rho"]
         self.n_ants  = cfg["n_ants"]
-        self.n_iter  = cfg["n_iter"]
+        self.n_iter  = max(1, int(cfg["n_iter"] * iter_factor))
         self.K_greedy = K_greedy
         self.verbose  = verbose
         self.rng = random.Random(seed)
@@ -305,9 +341,13 @@ class ACO:
         self.best_solution: List[int] = []
         self.best_benefit: int = 0
 
+        # Historial de convergencia poblacional: lista de dicts por iteración
+        self.history: List[Dict] = []
+
     # ── 5.1 Inicialización de feromona con greedy estocástico ─────────────
 
     def _init_pheromone_from_greedy(self):
+
         """
         Ejecuta K_greedy soluciones greedy estocásticas y fija la feromona
         inicial de cada alternativa proporcional a su frecuencia de aparición.
@@ -339,9 +379,11 @@ class ACO:
         if self.verbose:
             print(f"  [Greedy Init] Mejor greedy estocástico: {best_b}")
 
+
     # ── 5.2 Construcción de solución por una hormiga ──────────────────────
 
     def _construct_solution(self) -> List[int]:
+
         """
         Una hormiga construye una solución seleccionando alternativas de forma
         probabilística según τ^α · η^β.
@@ -351,6 +393,7 @@ class ACO:
         La selección se hace por ruleta (roulette wheel) sobre los candidatos
         factibles, recalculando η dinámicamente según los recursos ya activos.
         """
+
         selected: List[int] = []
         active_res: Set[int] = set()
         current_cost: int = 0
@@ -406,9 +449,11 @@ class ACO:
 
         return selected
 
+
     # ── 5.3 Actualización de feromona ─────────────────────────────────────
 
     def _update_pheromone(self, ant_solutions: List[Tuple[List[int], int]]):
+
         """
         Actualiza la feromona global con evaporación y refuerzo.
 
@@ -418,11 +463,12 @@ class ACO:
         Escalar por L_best evita que Δτ sea demasiado grande cuando L_best
         crece con la convergencia, manteniendo τ en rango estable.
         """
-        # Evaporación
+
+        # Evaporacion
         for i in range(self.inst.m):
             self.tau[i] *= (1.0 - self.rho)
 
-        # Depósito proporcional a la calidad
+        # Deposito proporcional a la calidad
         denom = self.best_benefit if self.best_benefit > 0 else 1
         for sol, benefit in ant_solutions:
             if benefit == 0:
@@ -431,22 +477,24 @@ class ACO:
             for i in sol:
                 self.tau[i] += delta
 
-        # Aplicar límites MMAS
+        # Aplico limites τ_i a [τ_min, τ_max] (MMAS)
         for i in range(self.inst.m):
             self.tau[i] = max(self.tau_min, min(self.tau_max, self.tau[i]))
+
 
     # ── 5.4 Búsqueda local (2-opt simplificado) ──────────────────────────
 
     def _local_search(self, sol: List[int]) -> List[int]:
+
         """
         Mejora local: intenta intercambiar alternativas seleccionadas por no
         seleccionadas si mejora el beneficio sin violar la restricción.
         Solo se hace un pasada para mantener la eficiencia.
         """
+
         selected_set = set(sol)
         not_selected = [i for i in range(self.inst.m) if i not in selected_set]
 
-        _, current_cost, _ = evaluate_solution(sol, self.inst)
         current_benefit, _, _ = evaluate_solution(sol, self.inst)
 
         improved = True
@@ -469,21 +517,32 @@ class ACO:
 
         return list(selected_set)
 
+
     # ── 5.5 Ciclo principal ACO ───────────────────────────────────────────
 
     def run(self) -> Tuple[List[int], int]:
         """
         Ejecuta el algoritmo ACO completo.
-        Retorna (mejor_solución, mejor_beneficio).
+        Además de retornar (mejor_solución, mejor_beneficio), llena
+        self.history con, por cada iteración:
+            iteration, best_global, iter_best, iter_mean, iter_worst, time_cum
+        donde iter_mean / iter_worst se calculan sobre TODAS las soluciones
+        factibles construidas por la colonia en esa iteración (incluida la
+        mejorada por búsqueda local si aplica), es decir, la convergencia
+        POBLACIONAL real (no solo la trayectoria del mejor global).
         """
+
         # Paso 1: inicializar feromona con greedy estocástico
         self._init_pheromone_from_greedy()
+        self.history = [] # Historial
 
+        t_start = time.perf_counter()
         no_improve_count = 0
-        MAX_NO_IMPROVE = 30  # criterio de parada anticipada
+        MAX_NO_IMPROVE = 30 # criterio de parada anticipada
 
         for iteration in range(self.n_iter):
             ant_solutions: List[Tuple[List[int], int]] = []
+            iter_benefits: List[int] = []
             iter_best_b = 0
             iter_best_sol: List[int] = []
 
@@ -494,6 +553,7 @@ class ACO:
 
                 if feasible:
                     ant_solutions.append((sol, benefit))
+                    iter_benefits.append(benefit)
 
                     if benefit > iter_best_b:
                         iter_best_b = benefit
@@ -509,6 +569,7 @@ class ACO:
             if iter_best_sol:
                 improved = self._local_search(iter_best_sol)
                 imp_b, _, _ = evaluate_solution(improved, self.inst)
+                iter_benefits.append(imp_b)
                 if imp_b > self.best_benefit:
                     self.best_benefit = imp_b
                     self.best_solution = improved[:]
@@ -516,10 +577,29 @@ class ACO:
                 # Reemplazar la hormiga si mejoró
                 if imp_b > iter_best_b:
                     ant_solutions.append((improved, imp_b))
+                    iter_best_b = imp_b
 
             # Paso 4: actualizar feromonas
             if ant_solutions:
                 self._update_pheromone(ant_solutions)
+
+            # ── Registro de convergencia poblacional de esta iteración ──
+            if iter_benefits:
+                iter_mean = statistics.mean(iter_benefits)
+                iter_worst = min(iter_benefits)
+            else:
+                iter_mean = self.best_benefit
+                iter_worst = self.best_benefit
+
+            t_cum = time.perf_counter() - t_start
+            self.history.append({
+                "iteration": iteration + 1,
+                "best_global": self.best_benefit,
+                "iter_best": iter_best_b,
+                "iter_mean": iter_mean,
+                "iter_worst": iter_worst,
+                "time_cum": t_cum,
+            })
 
             no_improve_count += 1
             if self.verbose and (iteration + 1) % 25 == 0:
@@ -538,7 +618,12 @@ class ACO:
 #  6. RUNNER DE EXPERIMENTOS
 # ══════════════════════════════════════════════════════════════════════════════
 
-def run_experiments(inst: Instance, inst_name: str, n_runs: int = 10) -> Tuple[Dict, str]:
+def run_experiments(inst: Instance, inst_name: str, n_runs: int = 10
+                     ) -> Tuple[Dict, str, List[Dict]]:
+    """
+    Retorna una lista de filas de convergencia (una por iteración 
+    por corrida) para exportar a CSV.
+    """
     config_name = inst_name.replace(".txt", "")
     cfg = ACO.CONFIGS.get(config_name, ACO.CONFIGS["medium1"])
 
@@ -567,13 +652,12 @@ def run_experiments(inst: Instance, inst_name: str, n_runs: int = 10) -> Tuple[D
     log(f"    Tiempo    : {gd_time:.4f}s")
     log()
 
-
-    # Greedy Estocástico - 10 corridas
+    # Greedy Estocástico (10 corridas)
     sto_benefits = []
     sto_costs = []
     sto_times = []
     for run_id in range(n_runs):
-        seed = BASE_SEED + run_id * 7  # mismas semillas que ACO
+        seed = BASE_SEED + run_id * 7
         rng = random.Random(seed)
         t0 = time.perf_counter()
         sol = greedy_stochastic(inst, rng, alpha_g=0.3)
@@ -602,12 +686,14 @@ def run_experiments(inst: Instance, inst_name: str, n_runs: int = 10) -> Tuple[D
     log(f"    Tiempo prom: {avg_time_sto:.4f}s")
     log()
 
-
     # ACO Runs
     log(f"  [ACO x{n_runs} corridas independientes]")
     aco_benefits = []
     aco_times = []
     aco_costs = []
+    convergence_rows: List[Dict] = []
+    best_run_id = -1
+    best_run_benefit = -1
 
     for run_id in range(n_runs):
         seed = BASE_SEED + run_id * 7
@@ -620,6 +706,23 @@ def run_experiments(inst: Instance, inst_name: str, n_runs: int = 10) -> Tuple[D
         aco_benefits.append(benefit)
         aco_costs.append(cost)
         aco_times.append(elapsed)
+
+        if benefit > best_run_benefit:
+            best_run_benefit = benefit
+            best_run_id = run_id + 1
+
+        # Guardar historial de convergencia de ESTA corrida
+        for row in aco.history:
+            convergence_rows.append({
+                "instance": config_name,
+                "run": run_id + 1,
+                "iteration": row["iteration"],
+                "best_global": row["best_global"],
+                "iter_best": row["iter_best"],
+                "iter_mean": row["iter_mean"],
+                "iter_worst": row["iter_worst"],
+                "time_cum": row["time_cum"],
+            })
 
         log(f"    Run {run_id+1:2d}: beneficio=  {benefit:<5d}  costo=  {cost:<5d}  t={elapsed:.4f}s")
 
@@ -637,30 +740,9 @@ def run_experiments(inst: Instance, inst_name: str, n_runs: int = 10) -> Tuple[D
     log(f"    Mejor     : {best_b}")
     log(f"    Peor      : {worst_b}")
     log(f"    Mediana   : {median_b:.1f}")
+    log(f"    Corrida con mejor resultado: Run {best_run_id} (usada como referencia")
+    log(f"      para los gráficos de convergencia poblacional y FO vs tiempo)")
     log()
-
-    # best_global = max(gd_b, best_b)
-    # log(f"  Mejor global (det vs ACO): {best_global}")
-    # log()
-
-    # stats = {
-    #     "instance": config_name,
-    #     "det": gd_b,
-    #     "best": best_b,
-    #     "mean": mean_b,
-    #     "std": std_b
-    # }
-
-#### V2 de stats con comparación directa y cálculo de gap porcentual ####
-
-    # Cálculo del Gap porcentual
-    gap_pct = 0.0
-    if gd_b > 0:
-        gap_pct = ((best_b - gd_b) / gd_b) * 100
-
-    # Asumiendo que sumas los tiempos individuales, o puedes medir el tiempo total
-    total_time = gd_time + sum(aco_times) 
-
 
     # COMPARACION DE RESULTADOS
 
@@ -693,71 +775,94 @@ def run_experiments(inst: Instance, inst_name: str, n_runs: int = 10) -> Tuple[D
         "aco_worst": worst_b,
         "aco_t_avg": avg_time_aco,
         "aco_runs": n_runs,
+        "best_run_id": best_run_id,
     }
 
-    return stats, "\n".join(lines)
+    return stats, "\n".join(lines), convergence_rows
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  7. ESCRITURA DE RESULTADOS
+#  6B. BARRIDO DE PARÁMETROS (justificación empírica, análogo a tabla de tenure)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def write_results(all_results: List[Dict], output_path: str):
-    """Escribe el análisis estadístico completo en results.txt."""
+def run_parameter_sweep(inst: Instance, instance_name: str,
+                         rho_values: List[float] = None,
+                         n_reps: int = N_REPS_SWEEP,
+                         iter_factor: float = SWEEP_ITER_FACTOR
+                         ) -> Tuple[List[Dict], str]:
+    """
+    Corre el ACO variando rho (tasa de evaporación) sobre >=5 valores con
+    >=5 repeticiones cada uno, registrando mejor/media/desv.est. por valor.
+    Retorna las filas crudas (para CSV) y el texto de tabla (para results.txt)
+    """
+    if rho_values is None:
+        rho_values = RHO_SWEEP_VALUES
+
+    config_name = instance_name.replace(".txt", "")
+    rows: List[Dict] = []
     lines = []
+    lines.append("")
     lines.append("=" * 70)
-    lines.append("  RESULTADOS – ACO para Selección de Proyectos con Costos Compartidos")
-    lines.append("  CIT3352 – Algoritmos Exactos y Metaheurísticas – Tarea 2, P3")
+    lines.append(f"  CALIBRACIÓN DE PARÁMETROS (rho) - Instancia: {config_name}")
+    lines.append(f"  ({n_reps} repeticiones por valor, resto de parámetros fijos según CONFIGS)")
+    lines.append("=" * 70)
+    lines.append(f"  {'rho':>6} | {'Mejor':>8} | {'Media':>10} | {'Desv.Est':>9} | {'Peor':>8}")
+    lines.append("  " + "-" * 52)
+
+    for rho_val in rho_values:
+        benefits = []
+        for rep in range(n_reps):
+            seed = BASE_SEED + rep * 13 + int(rho_val * 1000)
+            aco = ACO(inst, config_name=config_name, seed=seed, K_greedy=10,
+                      verbose=False, param_overrides={"rho": rho_val},
+                      iter_factor=iter_factor)
+            _, benefit = aco.run()
+            benefits.append(benefit)
+            rows.append({
+                "instance": config_name,
+                "rho": rho_val,
+                "rep": rep + 1,
+                "benefit": benefit,
+            })
+            print(f"    [Sweep rho={rho_val:.2f}] rep {rep+1}/{n_reps} -> beneficio={benefit}")
+
+        mean_b = statistics.mean(benefits)
+        std_b = statistics.stdev(benefits) if len(benefits) > 1 else 0
+        best_b = max(benefits)
+        worst_b = min(benefits)
+        lines.append(f"  {rho_val:>6.2f} | {best_b:>8} | {mean_b:>10.2f} | {std_b:>9.2f} | {worst_b:>8}")
+
+    base_rho = ACO.CONFIGS.get(config_name, ACO.CONFIGS["medium1"])["rho"]
+    lines.append("")
+    lines.append(f"  Valor utilizado en la configuración final: rho = {base_rho}")
     lines.append("=" * 70)
 
-    for r in all_results:
-        lines.append(f"\n{'─'*70}")
-        lines.append(f"  Instancia : {r['instance']}")
-        lines.append(f"  Tamaño    : m={r['m']} alternativas, n={r['n']} recursos, "
-                     f"ne={r['ne']} relaciones, B={r['B']}")
-        lines.append("")
-        lines.append(f"  GREEDY DETERMINISTA")
-        lines.append(f"    Beneficio obtenido : {r['greedy_det']}")
-        lines.append("")
-        lines.append(f"  GREEDY ESTOCÁSTICO (10 corridas)")
-        lines.append(f"    Mejor              : {r['greedy_sto_best']}")
-        lines.append(f"    Media              : {r['greedy_sto_mean']:.2f}")
-        lines.append(f"    Desviación estándar: {r['greedy_sto_std']:.2f}")
-        lines.append("")
-        lines.append(f"  ACO ({r['aco_runs']} corridas, α=1.0, β=2.0/1.5, ρ=0.05-0.10)")
-        lines.append(f"    Mejor beneficio    : {r['aco_best']}")
-        lines.append(f"    Media              : {r['aco_mean']:.2f}")
-        lines.append(f"    Desviación estándar: {r['aco_std']:.2f}")
-        lines.append(f"    Peor beneficio     : {r['aco_worst']}")
-        lines.append(f"    Tiempo promedio    : {r['aco_t_avg']:.2f}s")
-        if r['greedy_det'] > 0:
-            pct = (r['aco_best'] - r['greedy_det']) / r['greedy_det'] * 100
-            lines.append(f"    Mejora vs Greedy Det.: {pct:+.2f}%")
-        if r['greedy_sto_best'] > 0:
-            pct2 = (r['aco_best'] - r['greedy_sto_best']) / r['greedy_sto_best'] * 100
-            lines.append(f"    Mejora vs Greedy Sto.: {pct2:+.2f}%")
+    return rows, "\n".join(lines)
 
-    lines.append(f"\n{'='*70}")
-    lines.append("  JUSTIFICACIÓN DE PARÁMETROS")
-    lines.append("  ─────────────────────────────────────────────────────────────────")
-    lines.append("  α = 1.0  : Peso neutro para la feromona; permite equilibrio entre")
-    lines.append("             explotación (memoria) y exploración (heurística).")
-    lines.append("  β = 2.0  : Mayor importancia a η dinámica; el ratio p_i/costo_marginal")
-    lines.append("             es muy informativo en problemas de mochila con recursos")
-    lines.append("             compartidos. β=1.5 para instancias difíciles (más exploración).")
-    lines.append("  ρ = 0.10 : Evaporación moderada para instancias fáciles/medias.")
-    lines.append("  ρ = 0.05 : Evaporación lenta para instancias difíciles (m=500),")
-    lines.append("             mantiene diversidad en espacios grandes de búsqueda.")
-    lines.append("  n_ants   : Escala con m (40 para hard); diversidad sin costo excesivo.")
-    lines.append("  K_greedy = 20 soluciones estocásticas para calibrar τ inicial.")
-    lines.append("  MMAS bounds [τ_min=0.01, τ_max=1.0]: evitan convergencia prematura.")
-    lines.append("  Estructura feromona en NODOS (no aristas): naturale para problemas")
-    lines.append("  de selección de ítems; reduce complejidad de O(m²) a O(m).")
-    lines.append(f"{'='*70}\n")
+# ══════════════════════════════════════════════════════════════════════════════
+#  7. EXPORTACIÓN A CSV
+# ══════════════════════════════════════════════════════════════════════════════
 
-    content = "\n".join(lines)
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(content)
-    print(f"\n  → Resultados escritos en: {output_path}")
+def write_convergence_csv(rows: List[Dict], output_path: str):
+    if not rows:
+        return
+    fieldnames = ["instance", "run", "iteration", "best_global",
+                  "iter_best", "iter_mean", "iter_worst", "time_cum"]
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"  → Datos de convergencia escritos en: {output_path}")
+
+
+def write_sweep_csv(rows: List[Dict], output_path: str):
+    if not rows:
+        return
+    fieldnames = ["instance", "rho", "rep", "benefit"]
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"  → Datos de barrido de parámetros escritos en: {output_path}")
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  8. PUNTO DE ENTRADA
@@ -766,6 +871,9 @@ def write_results(all_results: List[Dict], output_path: str):
 def main():
     all_stats = []
     all_logs = []
+    all_convergence_rows: List[Dict] = []
+    all_sweep_rows: List[Dict] = []
+    sweep_texts: List[str] = []
     random.seed(BASE_SEED)
 
     for filename in INSTANCE_FILES:
@@ -775,16 +883,21 @@ def main():
             continue
 
         inst = Instance.from_file(filepath)
-        stats, log_text = run_experiments(inst, filename, n_runs=10)
+        stats, log_text, conv_rows = run_experiments(inst, filename, n_runs=10)
         all_stats.append(stats)
         all_logs.append(log_text)
+        all_convergence_rows.extend(conv_rows)
 
-    # Si no se encontró ningún archivo, salir
+        config_name = filename.replace(".txt", "")
+        if config_name in SWEEP_INSTANCES:
+            sweep_rows, sweep_text = run_parameter_sweep(inst, filename)
+            all_sweep_rows.extend(sweep_rows)
+            sweep_texts.append(sweep_text)
+
     if not all_stats:
         print("\n  [ERROR] No se procesó ninguna instancia. Verifica la carpeta 'cases'.")
         return
 
-    # Generar tabla de resumen global
     summary_lines = []
     summary_lines.append("===========================================================================")
     summary_lines.append("  RESUMEN GLOBAL - ACO")
@@ -800,13 +913,19 @@ def main():
     summary_text = "\n".join(summary_lines)
     print(summary_text)
 
-    # Escribir todo al archivo de resultados
     with open(RESULTS_FILE, "w", encoding="utf-8") as f:
         for log_text in all_logs:
             f.write(log_text + "\n")
         f.write(summary_text)
+        if sweep_texts:
+            f.write("\n\n")
+            f.write("\n\n".join(sweep_texts))
+            f.write("\n")
 
     print(f"  → Resultados escritos en: {RESULTS_FILE}")
+
+    write_convergence_csv(all_convergence_rows, CONVERGENCE_FILE)
+    write_sweep_csv(all_sweep_rows, SWEEP_FILE)
 
 if __name__ == "__main__":
     main()

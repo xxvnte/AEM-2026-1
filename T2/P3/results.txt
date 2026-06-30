@@ -8,19 +8,19 @@
     Beneficio : 9868
     Costo     : 12085  (cap=12180)
     |Sol|     : 28
-    Tiempo    : 0.0006s
+    Tiempo    : 0.0002s
 
   [Greedy Estocástico (10 corridas)]
-    Run  1: beneficio=  10091  costo=  12070  t=0.0067s
-    Run  2: beneficio=  10983  costo=  12171  t=0.0063s
-    Run  3: beneficio=  10971  costo=  12162  t=0.0066s
-    Run  4: beneficio=  10683  costo=  12100  t=0.0065s
-    Run  5: beneficio=  11070  costo=  12117  t=0.0065s
-    Run  6: beneficio=  10423  costo=  12121  t=0.0063s
-    Run  7: beneficio=  11359  costo=  12111  t=0.0102s
-    Run  8: beneficio=  10842  costo=  12064  t=0.0066s
-    Run  9: beneficio=  11035  costo=  12132  t=0.0064s
-    Run 10: beneficio=  10982  costo=  12117  t=0.0064s
+    Run  1: beneficio=  10091  costo=  12070  t=0.0023s
+    Run  2: beneficio=  10983  costo=  12171  t=0.0023s
+    Run  3: beneficio=  10971  costo=  12162  t=0.0025s
+    Run  4: beneficio=  10683  costo=  12100  t=0.0022s
+    Run  5: beneficio=  11070  costo=  12117  t=0.0023s
+    Run  6: beneficio=  10423  costo=  12121  t=0.0021s
+    Run  7: beneficio=  11359  costo=  12111  t=0.0023s
+    Run  8: beneficio=  10842  costo=  12064  t=0.0023s
+    Run  9: beneficio=  11035  costo=  12132  t=0.0025s
+    Run 10: beneficio=  10982  costo=  12117  t=0.0022s
 
   Estadísticas Greedy Estocástico:
     Media     : 10843.90
@@ -28,19 +28,19 @@
     Mejor     : 11359
     Peor      : 10091
     Mediana   : 10976.5
-    Tiempo prom: 0.0069s
+    Tiempo prom: 0.0023s
 
   [ACO x10 corridas independientes]
-    Run  1: beneficio=  11748  costo=  12024  t=8.2183s
-    Run  2: beneficio=  11771  costo=  12129  t=16.6203s
-    Run  3: beneficio=  11771  costo=  12129  t=10.5382s
-    Run  4: beneficio=  11487  costo=  12171  t=16.2747s
-    Run  5: beneficio=  11682  costo=  12133  t=17.2577s
-    Run  6: beneficio=  11423  costo=  12090  t=11.7079s
-    Run  7: beneficio=  11468  costo=  12175  t=8.7001s
-    Run  8: beneficio=  11581  costo=  12135  t=12.4132s
-    Run  9: beneficio=  11657  costo=  12141  t=7.8957s
-    Run 10: beneficio=  11677  costo=  12160  t=24.4462s
+    Run  1: beneficio=  11748  costo=  12024  t=2.6485s
+    Run  2: beneficio=  11771  costo=  12129  t=5.4954s
+    Run  3: beneficio=  11771  costo=  12129  t=3.4378s
+    Run  4: beneficio=  11487  costo=  12171  t=5.2442s
+    Run  5: beneficio=  11682  costo=  12133  t=5.0583s
+    Run  6: beneficio=  11423  costo=  12090  t=3.6788s
+    Run  7: beneficio=  11468  costo=  12175  t=2.5502s
+    Run  8: beneficio=  11581  costo=  12135  t=3.9058s
+    Run  9: beneficio=  11657  costo=  12141  t=2.6174s
+    Run 10: beneficio=  11677  costo=  12160  t=7.5857s
 
   Estadísticas ACO:
     Media     : 11626.50
@@ -48,6 +48,8 @@
     Mejor     : 11771
     Peor      : 11423
     Mediana   : 11667.0
+    Corrida con mejor resultado: Run 2 (usada como referencia
+      para los gráficos de convergencia poblacional y FO vs tiempo)
 
   Comparativa:
     Greedy Det.        : 9868
@@ -58,7 +60,7 @@
     Gap ACO vs Det.   : +19.28%
     Gap ACO vs Sto.   : +3.63%
 
-  Tiempo total instancia: 134.1414s
+  Tiempo total instancia: 42.2453s
 
 =================================================================
   ACO - Instancia: medium1
@@ -70,19 +72,19 @@
     Beneficio : 6793
     Costo     : 28157  (cap=28159)
     |Sol|     : 15
-    Tiempo    : 0.0021s
+    Tiempo    : 0.0006s
 
   [Greedy Estocástico (10 corridas)]
-    Run  1: beneficio=  8553   costo=  28104  t=0.0322s
-    Run  2: beneficio=  9197   costo=  28087  t=0.0248s
-    Run  3: beneficio=  9664   costo=  28158  t=0.0276s
-    Run  4: beneficio=  10277  costo=  28090  t=0.0327s
-    Run  5: beneficio=  9619   costo=  28109  t=0.0257s
-    Run  6: beneficio=  9676   costo=  28066  t=0.0217s
-    Run  7: beneficio=  10570  costo=  28100  t=0.0248s
-    Run  8: beneficio=  9653   costo=  28012  t=0.0237s
-    Run  9: beneficio=  8734   costo=  28154  t=0.0210s
-    Run 10: beneficio=  9685   costo=  28134  t=0.0232s
+    Run  1: beneficio=  8553   costo=  28104  t=0.0074s
+    Run  2: beneficio=  9197   costo=  28087  t=0.0071s
+    Run  3: beneficio=  9664   costo=  28158  t=0.0085s
+    Run  4: beneficio=  10277  costo=  28090  t=0.0085s
+    Run  5: beneficio=  9619   costo=  28109  t=0.0077s
+    Run  6: beneficio=  9676   costo=  28066  t=0.0077s
+    Run  7: beneficio=  10570  costo=  28100  t=0.0086s
+    Run  8: beneficio=  9653   costo=  28012  t=0.0081s
+    Run  9: beneficio=  8734   costo=  28154  t=0.0073s
+    Run 10: beneficio=  9685   costo=  28134  t=0.0081s
 
   Estadísticas Greedy Estocástico:
     Media     : 9562.80
@@ -90,19 +92,19 @@
     Mejor     : 10570
     Peor      : 8553
     Mediana   : 9658.5
-    Tiempo prom: 0.0257s
+    Tiempo prom: 0.0079s
 
   [ACO x10 corridas independientes]
-    Run  1: beneficio=  10184  costo=  28157  t=47.8770s
-    Run  2: beneficio=  10570  costo=  28100  t=46.7871s
-    Run  3: beneficio=  10727  costo=  28139  t=51.2982s
-    Run  4: beneficio=  10570  costo=  28100  t=1267.8628s
-    Run  5: beneficio=  10831  costo=  28132  t=16.1787s
-    Run  6: beneficio=  10570  costo=  28100  t=15.7697s
-    Run  7: beneficio=  10614  costo=  28017  t=17.0460s
-    Run  8: beneficio=  10570  costo=  28100  t=15.5107s
-    Run  9: beneficio=  10605  costo=  28138  t=20.5348s
-    Run 10: beneficio=  10614  costo=  28017  t=46.6855s
+    Run  1: beneficio=  10184  costo=  28157  t=13.8984s
+    Run  2: beneficio=  10570  costo=  28100  t=13.7989s
+    Run  3: beneficio=  10727  costo=  28139  t=14.5173s
+    Run  4: beneficio=  10570  costo=  28100  t=13.4919s
+    Run  5: beneficio=  10831  costo=  28132  t=14.4263s
+    Run  6: beneficio=  10570  costo=  28100  t=13.7049s
+    Run  7: beneficio=  10614  costo=  28017  t=14.8007s
+    Run  8: beneficio=  10570  costo=  28100  t=14.5347s
+    Run  9: beneficio=  10605  costo=  28138  t=15.0695s
+    Run 10: beneficio=  10614  costo=  28017  t=13.1455s
 
   Estadísticas ACO:
     Media     : 10585.50
@@ -110,6 +112,8 @@
     Mejor     : 10831
     Peor      : 10184
     Mediana   : 10587.5
+    Corrida con mejor resultado: Run 5 (usada como referencia
+      para los gráficos de convergencia poblacional y FO vs tiempo)
 
   Comparativa:
     Greedy Det.        : 6793
@@ -120,7 +124,7 @@
     Gap ACO vs Det.   : +59.44%
     Gap ACO vs Sto.   : +2.47%
 
-  Tiempo total instancia: 1545.8102s
+  Tiempo total instancia: 141.4678s
 
 =================================================================
   ACO - Instancia: medium2
@@ -132,19 +136,19 @@
     Beneficio : 9833
     Costo     : 25614  (cap=25630)
     |Sol|     : 27
-    Tiempo    : 0.0035s
+    Tiempo    : 0.0006s
 
   [Greedy Estocástico (10 corridas)]
-    Run  1: beneficio=  10615  costo=  25540  t=0.0730s
-    Run  2: beneficio=  11354  costo=  25621  t=0.0350s
-    Run  3: beneficio=  11491  costo=  25514  t=0.0339s
-    Run  4: beneficio=  10897  costo=  25558  t=0.0265s
-    Run  5: beneficio=  10896  costo=  25577  t=0.0234s
-    Run  6: beneficio=  10736  costo=  25595  t=0.0242s
-    Run  7: beneficio=  10032  costo=  25595  t=0.0265s
-    Run  8: beneficio=  10822  costo=  25628  t=0.0284s
-    Run  9: beneficio=  10708  costo=  25386  t=0.0265s
-    Run 10: beneficio=  10445  costo=  25585  t=0.0278s
+    Run  1: beneficio=  10615  costo=  25540  t=0.0086s
+    Run  2: beneficio=  11354  costo=  25621  t=0.0086s
+    Run  3: beneficio=  11491  costo=  25514  t=0.0092s
+    Run  4: beneficio=  10897  costo=  25558  t=0.0084s
+    Run  5: beneficio=  10896  costo=  25577  t=0.0078s
+    Run  6: beneficio=  10736  costo=  25595  t=0.0081s
+    Run  7: beneficio=  10032  costo=  25595  t=0.0078s
+    Run  8: beneficio=  10822  costo=  25628  t=0.0085s
+    Run  9: beneficio=  10708  costo=  25386  t=0.0083s
+    Run 10: beneficio=  10445  costo=  25585  t=0.0085s
 
   Estadísticas Greedy Estocástico:
     Media     : 10799.60
@@ -152,19 +156,19 @@
     Mejor     : 11491
     Peor      : 10032
     Mediana   : 10779.0
-    Tiempo prom: 0.0325s
+    Tiempo prom: 0.0084s
 
   [ACO x10 corridas independientes]
-    Run  1: beneficio=  11954  costo=  25603  t=57.5136s
-    Run  2: beneficio=  11475  costo=  25600  t=3352.3433s
-    Run  3: beneficio=  11491  costo=  25514  t=19.1549s
-    Run  4: beneficio=  11516  costo=  25630  t=23.3670s
-    Run  5: beneficio=  11831  costo=  25577  t=19.8834s
-    Run  6: beneficio=  11444  costo=  25619  t=18.8848s
-    Run  7: beneficio=  12136  costo=  25581  t=36.1002s
-    Run  8: beneficio=  11771  costo=  25613  t=60.6031s
-    Run  9: beneficio=  11592  costo=  25602  t=55.8330s
-    Run 10: beneficio=  12048  costo=  25575  t=58.8336s
+    Run  1: beneficio=  11954  costo=  25603  t=17.1276s
+    Run  2: beneficio=  11475  costo=  25600  t=18.5438s
+    Run  3: beneficio=  11491  costo=  25514  t=18.6845s
+    Run  4: beneficio=  11516  costo=  25630  t=23.3023s
+    Run  5: beneficio=  11831  costo=  25577  t=19.4708s
+    Run  6: beneficio=  11444  costo=  25619  t=18.6947s
+    Run  7: beneficio=  12136  costo=  25581  t=17.8490s
+    Run  8: beneficio=  11771  costo=  25613  t=19.2937s
+    Run  9: beneficio=  11592  costo=  25602  t=17.9193s
+    Run 10: beneficio=  12048  costo=  25575  t=19.1795s
 
   Estadísticas ACO:
     Media     : 11725.80
@@ -172,6 +176,8 @@
     Mejor     : 12136
     Peor      : 11444
     Mediana   : 11681.5
+    Corrida con mejor resultado: Run 7 (usada como referencia
+      para los gráficos de convergencia poblacional y FO vs tiempo)
 
   Comparativa:
     Greedy Det.        : 9833
@@ -182,7 +188,7 @@
     Gap ACO vs Det.   : +23.42%
     Gap ACO vs Sto.   : +5.61%
 
-  Tiempo total instancia: 3702.8455s
+  Tiempo total instancia: 190.1496s
 
 =================================================================
   ACO - Instancia: hard
@@ -194,19 +200,19 @@
     Beneficio : 6888
     Costo     : 73541  (cap=73927)
     |Sol|     : 14
-    Tiempo    : 0.0110s
+    Tiempo    : 0.0037s
 
   [Greedy Estocástico (10 corridas)]
-    Run  1: beneficio=  8629   costo=  73905  t=0.1215s
-    Run  2: beneficio=  7573   costo=  73853  t=0.1062s
-    Run  3: beneficio=  7381   costo=  73360  t=0.0943s
-    Run  4: beneficio=  8711   costo=  73559  t=0.1208s
-    Run  5: beneficio=  8766   costo=  73662  t=0.1154s
-    Run  6: beneficio=  8511   costo=  73862  t=0.1127s
-    Run  7: beneficio=  8456   costo=  73837  t=0.1139s
-    Run  8: beneficio=  8219   costo=  73918  t=0.1587s
-    Run  9: beneficio=  9302   costo=  73881  t=0.1240s
-    Run 10: beneficio=  8227   costo=  73772  t=0.1051s
+    Run  1: beneficio=  8629   costo=  73905  t=0.0414s
+    Run  2: beneficio=  7573   costo=  73853  t=0.0384s
+    Run  3: beneficio=  7381   costo=  73360  t=0.0344s
+    Run  4: beneficio=  8711   costo=  73559  t=0.0415s
+    Run  5: beneficio=  8766   costo=  73662  t=0.0411s
+    Run  6: beneficio=  8511   costo=  73862  t=0.0390s
+    Run  7: beneficio=  8456   costo=  73837  t=0.0392s
+    Run  8: beneficio=  8219   costo=  73918  t=0.0397s
+    Run  9: beneficio=  9302   costo=  73881  t=0.0437s
+    Run 10: beneficio=  8227   costo=  73772  t=0.0371s
 
   Estadísticas Greedy Estocástico:
     Media     : 8377.50
@@ -214,19 +220,19 @@
     Mejor     : 9302
     Peor      : 7381
     Mediana   : 8483.5
-    Tiempo prom: 0.1173s
+    Tiempo prom: 0.0396s
 
   [ACO x10 corridas independientes]
-    Run  1: beneficio=  9310   costo=  73926  t=347.6195s
-    Run  2: beneficio=  9367   costo=  73813  t=338.8823s
-    Run  3: beneficio=  8928   costo=  73704  t=302.9539s
-    Run  4: beneficio=  9028   costo=  73769  t=337.3976s
-    Run  5: beneficio=  9118   costo=  73913  t=345.7432s
-    Run  6: beneficio=  9008   costo=  73739  t=299.1156s
-    Run  7: beneficio=  9030   costo=  73811  t=308.0272s
-    Run  8: beneficio=  9247   costo=  73644  t=325.0948s
-    Run  9: beneficio=  9384   costo=  73925  t=342.9416s
-    Run 10: beneficio=  9060   costo=  73675  t=331.1392s
+    Run  1: beneficio=  9310   costo=  73926  t=112.1732s
+    Run  2: beneficio=  9367   costo=  73813  t=109.4716s
+    Run  3: beneficio=  8928   costo=  73704  t=109.9206s
+    Run  4: beneficio=  9028   costo=  73769  t=111.8729s
+    Run  5: beneficio=  9118   costo=  73913  t=109.1604s
+    Run  6: beneficio=  9008   costo=  73739  t=103.0870s
+    Run  7: beneficio=  9030   costo=  73811  t=104.5360s
+    Run  8: beneficio=  9247   costo=  73644  t=114.2290s
+    Run  9: beneficio=  9384   costo=  73925  t=115.1139s
+    Run 10: beneficio=  9060   costo=  73675  t=112.6962s
 
   Estadísticas ACO:
     Media     : 9148.00
@@ -234,6 +240,8 @@
     Mejor     : 9384
     Peor      : 8928
     Mediana   : 9089.0
+    Corrida con mejor resultado: Run 9 (usada como referencia
+      para los gráficos de convergencia poblacional y FO vs tiempo)
 
   Comparativa:
     Greedy Det.        : 6888
@@ -244,7 +252,7 @@
     Gap ACO vs Det.   : +36.24%
     Gap ACO vs Sto.   : +0.88%
 
-  Tiempo total instancia: 3280.0985s
+  Tiempo total instancia: 1102.6599s
 
 ===========================================================================
   RESUMEN GLOBAL - ACO
@@ -255,3 +263,36 @@
   medium1         6793      10570    9562.8     10831   10585.5    164.8
   medium2         9833      11491   10799.6     12136   11725.8    257.5
   hard            6888       9302    8377.5      9384    9148.0    164.9
+
+
+
+======================================================================
+  CALIBRACIÓN DE PARÁMETROS (rho) - Instancia: easy
+  (5 repeticiones por valor, resto de parámetros fijos según CONFIGS)
+======================================================================
+     rho |    Mejor |      Media |  Desv.Est |     Peor
+  ----------------------------------------------------
+    0.03 |    11869 |   11728.20 |    153.48 |    11558
+    0.05 |    11771 |   11695.60 |     79.01 |    11582
+    0.08 |    11765 |   11603.80 |    127.61 |    11436
+    0.12 |    11771 |   11673.00 |     83.68 |    11579
+    0.18 |    11735 |   11620.60 |     84.90 |    11506
+
+  Valor utilizado en la configuración final: rho = 0.1
+======================================================================
+
+
+======================================================================
+  CALIBRACIÓN DE PARÁMETROS (rho) - Instancia: medium1
+  (5 repeticiones por valor, resto de parámetros fijos según CONFIGS)
+======================================================================
+     rho |    Mejor |      Media |  Desv.Est |     Peor
+  ----------------------------------------------------
+    0.03 |    10655 |   10484.20 |    129.07 |    10299
+    0.05 |    10614 |   10492.00 |    107.83 |    10405
+    0.08 |    10665 |   10421.80 |    206.03 |    10139
+    0.12 |    10605 |   10466.60 |    124.48 |    10293
+    0.18 |    10973 |   10606.00 |    218.91 |    10406
+
+  Valor utilizado en la configuración final: rho = 0.08
+======================================================================
